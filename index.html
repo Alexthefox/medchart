@@ -665,7 +665,12 @@ function connectDrive(){
       updateDriveUI(true);
       toast('Google Drive connesso!','ok');
       await ensureFolder();
-      await syncToDrive();
+      // Only sync if we have local data; otherwise load from Drive
+      if(records.length>0){
+        await syncToDrive();
+      } else {
+        toast('Drive connesso — usa "↓ Carica da Drive" per recuperare i tuoi dati','ok');
+      }
     }
   });
   client.requestAccessToken();
@@ -1049,114 +1054,95 @@ function drawChart(paramName){
   function xPos(i){return PAD.left+(i/(data.length-1||1))*cw;}
   function yPos(v){return PAD.top+ch-(v-yMin)/(yMax-yMin)*ch;}
 
-  // Grid lines
-  ctx.strokeStyle='#262b38';ctx.lineWidth=1;
-  const steps=4;
-  for(let i=0;i<=steps;i++){
-    const y=PAD.top+(ch/steps)*i;
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
-    const val=yMax-(yMax-yMin)*(i/steps);
-    ctx.fillStyle='#3d4459';ctx.font='10px IBM Plex Sans';ctx.textAlign='right';
-    ctx.fillText(val.toFixed(1),PAD.left-6,y+3);
-  }
+  // Gradient fill color
+  const gradColor=sc==='#3dffa0'?'rgba(61,255,160,0.18)':sc==='#ff5c5c'?'rgba(255,92,92,0.18)':'rgba(255,204,68,0.18)';
 
-  // Reference lines
-  if(data[0].min!==null){
-    const y=yPos(data[0].min);
-    ctx.save();ctx.strokeStyle='#ffcc44';ctx.lineWidth=1;ctx.setLineDash([5,4]);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
-    ctx.fillStyle='#ffcc44';ctx.font='10px IBM Plex Sans';ctx.textAlign='left';
-    ctx.fillText('min '+data[0].min,PAD.left+3,y-3);
-    ctx.restore();
-  }
-  if(data[0].max!==null){
-    const y=yPos(data[0].max);
-    ctx.save();ctx.strokeStyle='#ff5c5c';ctx.lineWidth=1;ctx.setLineDash([5,4]);
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
-    ctx.fillStyle='#ff5c5c';ctx.font='10px IBM Plex Sans';ctx.textAlign='left';
-    ctx.fillText('max '+data[0].max,PAD.left+3,y-3);
-    ctx.restore();
-  }
+  // Draw chart (full redraw used also on hover)
+  // Store chart draw function for full redraw on hover
+  function renderFrame(highlightIdx){
+    ctx.clearRect(0,0,W,H);
+    const steps=4;
 
-  // Gradient fill
-  const grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+ch);
-  const gradColor=sc==='#3dffa0'?'rgba(61,255,160,0.18)':sc==='#ff5c5c'?'rgba(255,92,92,0.18)':'rgba(255,204,68,0.18)';grad.addColorStop(0,gradColor);
-  grad.addColorStop(1,'rgba(0,0,0,0)');
+    // Grid
+    ctx.strokeStyle='#262b38';ctx.lineWidth=1;
+    for(let i=0;i<=steps;i++){
+      const y=PAD.top+(ch/steps)*i;
+      ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
+      const val=yMax-(yMax-yMin)*(i/steps);
+      ctx.fillStyle='#3d4459';ctx.font='10px IBM Plex Sans';ctx.textAlign='right';
+      ctx.fillText(val.toFixed(1),PAD.left-6,y+3);
+    }
 
-  // Area
-  ctx.beginPath();
-  data.forEach((d,i)=>{
-    const x=xPos(i),y=yPos(d.value);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.lineTo(xPos(data.length-1),PAD.top+ch);
-  ctx.lineTo(xPos(0),PAD.top+ch);
-  ctx.closePath();
-  ctx.fillStyle=grad;ctx.fill();
+    // Ref lines
+    if(data[0].min!==null){
+      const y=yPos(data[0].min);
+      ctx.save();ctx.strokeStyle='#ffcc44';ctx.lineWidth=1;ctx.setLineDash([5,4]);
+      ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
+      ctx.fillStyle='#ffcc44';ctx.font='10px IBM Plex Sans';ctx.textAlign='left';ctx.setLineDash([]);
+      ctx.fillText('min '+data[0].min,PAD.left+3,y-3);
+      ctx.restore();
+    }
+    if(data[0].max!==null){
+      const y=yPos(data[0].max);
+      ctx.save();ctx.strokeStyle='#ff5c5c';ctx.lineWidth=1;ctx.setLineDash([5,4]);
+      ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
+      ctx.fillStyle='#ff5c5c';ctx.font='10px IBM Plex Sans';ctx.textAlign='left';ctx.setLineDash([]);
+      ctx.fillText('max '+data[0].max,PAD.left+3,y-3);
+      ctx.restore();
+    }
 
-  // Line
-  ctx.beginPath();ctx.strokeStyle=sc;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.setLineDash([]);
-  data.forEach((d,i)=>{
-    const x=xPos(i),y=yPos(d.value);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.stroke();
+    // Gradient area
+    const grad2=ctx.createLinearGradient(0,PAD.top,0,PAD.top+ch);
+    grad2.addColorStop(0,gradColor);grad2.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath();
+    data.forEach((d,i)=>{const x=xPos(i),y=yPos(d.value);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    ctx.lineTo(xPos(data.length-1),PAD.top+ch);ctx.lineTo(xPos(0),PAD.top+ch);
+    ctx.closePath();ctx.fillStyle=grad2;ctx.fill();
 
-  // Dots & X labels
-  data.forEach((d,i)=>{
-    const x=xPos(i),y=yPos(d.value);
-    const ds=status(d.value,d.min,d.max);
-    const dc=statusColor(ds);
-    ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);
-    ctx.fillStyle=dc;ctx.fill();
-    ctx.strokeStyle=var_bg();ctx.lineWidth=2;ctx.stroke();
+    // Line
+    ctx.beginPath();ctx.strokeStyle=sc;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.setLineDash([]);
+    data.forEach((d,i)=>{const x=xPos(i),y=yPos(d.value);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    ctx.stroke();
 
-    // X label (date)
-    ctx.fillStyle='#3d4459';ctx.font='10px IBM Plex Sans';ctx.textAlign='center';
-    ctx.fillText(d.label,x,H-8);
-  });
-
-  // Store data for tooltip
-  canvas._chartData={data,xPos,yPos,paramName,PAD,cw,H,W,DPR};
-  canvas._activeIdx=-1;
-
-  function redrawDots(highlightIdx){
-    // Redraw only dots & labels to show hover state
-    // (full redraw not needed — we just overlay highlight)
+    // Dots + X labels + hover label
     data.forEach((d,i)=>{
       const x=xPos(i),y=yPos(d.value);
       const ds=status(d.value,d.min,d.max);
       const dc=statusColor(ds);
       const isHover=(i===highlightIdx);
-      // clear dot area
-      ctx.save();
-      ctx.clearRect(x-10,y-14,20,28);
-      // redraw small area of gradient & line behind dot — skip for simplicity, just redraw dot
-      ctx.beginPath();ctx.arc(x,y,isHover?7:5,0,Math.PI*2);
+      const r=isHover?7:5;
+      ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
       ctx.fillStyle=dc;ctx.fill();
       ctx.strokeStyle=var_bg();ctx.lineWidth=2;ctx.stroke();
-      // value label above dot on hover — clean, no opaque box
+      // X date label
+      ctx.fillStyle='#3d4459';ctx.font='10px IBM Plex Sans';ctx.textAlign='center';
+      ctx.fillText(d.label,x,H-8);
+      // Value label only on hover
       if(isHover){
-        const lbl=`${d.value}`;
+        const lbl=String(d.value);
+        ctx.save();
         ctx.font='bold 12px IBM Plex Sans';
         ctx.textAlign='center';
-        // subtle dark shadow for readability
-        ctx.shadowColor='rgba(0,0,0,0.9)';
-        ctx.shadowBlur=6;
+        ctx.shadowColor='rgba(0,0,0,0.95)';ctx.shadowBlur=8;
         ctx.fillStyle=dc;
-        ctx.fillText(lbl,x,y-12);
+        ctx.fillText(lbl,x,y-13);
         ctx.shadowBlur=0;
+        ctx.restore();
       }
-      ctx.restore();
     });
   }
+
+  renderFrame(-1);
+
+  // Store data for tooltip
+  canvas._chartData={data,xPos,yPos,paramName,PAD,cw,H,W,DPR};
+  canvas._activeIdx=-1;
 
   // Tooltip events
   canvas.onmousemove=canvas.ontouchmove=function(e){
     const rect=canvas.getBoundingClientRect();
     const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
     const d2=canvas._chartData;
-    // find nearest point
     let best=null,bestDist=999,bestIdx=-1;
     d2.data.forEach((pt,i)=>{
       const dist=Math.abs(d2.xPos(i)-cx);
@@ -1165,7 +1151,7 @@ function drawChart(paramName){
     if(best&&bestDist<50){
       if(canvas._activeIdx!==bestIdx){
         canvas._activeIdx=bestIdx;
-        redrawDots(bestIdx);
+        renderFrame(bestIdx);
       }
       const pt=best.pt;
       const st2=status(pt.value,pt.min,pt.max);
@@ -1182,7 +1168,6 @@ function drawChart(paramName){
       document.getElementById('tipRange').textContent=rng;
       document.getElementById('tipStatus').textContent=st2==='ok'?'✓ Nella norma':st2==='high'?'↑ Sopra il range':'↓ Sotto il range';
       document.getElementById('tipStatus').style.color=sc2;
-      // position
       const pageX=e.touches?e.touches[0].pageX:e.pageX;
       const pageY=e.touches?e.touches[0].pageY:e.pageY;
       const tipW=160;
@@ -1190,13 +1175,13 @@ function drawChart(paramName){
       tip.style.left=leftPos+'px';
       tip.style.top=(pageY-70)+'px';
     } else {
-      if(canvas._activeIdx!==-1){canvas._activeIdx=-1;redrawDots(-1);}
+      if(canvas._activeIdx!==-1){canvas._activeIdx=-1;renderFrame(-1);}
       document.getElementById('tip').style.display='none';
     }
   };
   canvas.onmouseleave=()=>{
     canvas._activeIdx=-1;
-    redrawDots(-1);
+    renderFrame(-1);
     document.getElementById('tip').style.display='none';
   };
 }
