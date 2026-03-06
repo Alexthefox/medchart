@@ -333,32 +333,35 @@ function buildRecord(lines,filename){
   const params={};
 
   lines.forEach(line=>{
-    const ll=line.toLowerCase();
+    // Remove [51] style lab codes before parsing
+    const cleanLine=line.replace(/\[\d+\]/g,'').trim();
+    const ll=cleanLine.toLowerCase();
     for(const[alias,canon] of Object.entries(ALIASES)){
       if(ll.includes(alias)){
         // find first numeric value that looks like a result
-        const nums=[...line.matchAll(/\b(\d{1,4}[.,]?\d{0,3})\s*\*?/g)];
+        // skip integers that look like year/doc numbers (4+ digits)
+        const nums=[...cleanLine.matchAll(/\b(\d{1,3}[.,]\d{1,3}|\d{1,3})\s*\*?/g)];
         if(!nums.length)continue;
         let value=null;
         for(const nm of nums){
           const v=parseFloat(nm[1].replace(',','.'));
-          if(!isNaN(v)&&v>0&&v<100000){value=v;break;}
+          if(!isNaN(v)&&v>0&&v<10000){value=v;break;}
         }
         if(value===null)continue;
 
         // unit
-        const um=line.match(/\b\d+[.,]?\d*\s*\*?\s*([a-zA-Z%\/\^]+)/);
+        const um=cleanLine.match(/\b\d+[.,]?\d*\s*\*?\s*([a-zA-Z%\/\^]+)/);
         const unit=um?um[1].replace(/^\*/,''):'';
 
-        // range
+        // range — look for "X.XX - Y.YY" pattern, skip the value itself
         let range='';
-        const rInLine=line.match(/([\d.,]+)\s*[-–]\s*([\d.,]+)/g);
+        const rInLine=cleanLine.match(/(\d+[.,]?\d*)\s*[-–]\s*(\d+[.,]?\d*)/g);
         if(rInLine&&rInLine.length>0){
-          // take last range match (first match is often the value itself)
+          // take last range match (more likely to be the reference range)
           range=rInLine[rInLine.length-1];
         }
-        const ltm=line.match(/<\s*[\d.,]+/);
-        const gtm=line.match(/>\s*[\d.,]+/);
+        const ltm=cleanLine.match(/<\s*[\d.,]+/);
+        const gtm=cleanLine.match(/>\s*[\d.,]+/);
         if(!range&&ltm)range=ltm[0];
         if(!range&&gtm)range=gtm[0];
 
