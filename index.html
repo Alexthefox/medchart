@@ -1341,6 +1341,7 @@ function importData(e){
 // ── PARAM INFO MODAL ─────────────────────────────────────────────────────────
 const _infoCache={};
 let _anthropicKey=localStorage.getItem('mc_akey')||'';
+let _geminiKey=localStorage.getItem('mc_gkey')||'';
 
 async function showParamInfo(paramName){
   const latest=records
@@ -1354,52 +1355,19 @@ async function showParamInfo(paramName){
   document.getElementById('infoOverlay').style.display='';
   document.getElementById('infoModal').style.display='';
 
-  if(_infoCache[paramName]){
-    renderInfoContent(_infoCache[paramName],val);
+  if(_infoCache[paramName]){renderInfoContent(_infoCache[paramName],val);return;}
+
+  if(!_anthropicKey&&!_geminiKey){
+    showApiKeyForm(paramName,'anthropic');
     return;
   }
 
-  if(!_anthropicKey){
-    document.getElementById('infoContent').innerHTML=`
-      <p style="color:var(--text2);margin-bottom:16px">Per le spiegazioni AI è necessaria una <strong style="color:var(--text)">Anthropic API key</strong>.<br>
-      Ottienila su <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue)">console.anthropic.com</a> → API Keys.</p>
-      <div style="display:flex;gap:8px">
-        <input id="apiKeyInput" type="password" placeholder="sk-ant-..." 
-          style="flex:1;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:9px 13px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none"
-          onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'"
-          onkeydown="if(event.key==='Enter')saveApiKeyAndLoad('${paramName}')">
-        <button class="btn btn-primary" onclick="saveApiKeyAndLoad('${paramName}')">Salva e carica</button>
-      </div>`;
-    document.getElementById('infoContent').style.display='';
-    setTimeout(()=>document.getElementById('apiKeyInput')?.focus(),100);
-    return;
-  }
-
-  await loadParamInfo(paramName,val);
-}
-
-async function saveApiKeyAndLoad(paramName){
-  const input=document.getElementById('apiKeyInput');
-  const k=input?input.value.trim():'';
-  if(!k.startsWith('sk-')){
-    input.style.borderColor='var(--red)';
-    input.placeholder='Deve iniziare con sk-ant-...';
-    return;
-  }
-  _anthropicKey=k;
-  localStorage.setItem('mc_akey',k);
-  const latest=records
-    .filter(r=>r.params[paramName])
-    .sort((a,b)=>sortDate(b.date).localeCompare(sortDate(a.date)))[0];
-  const val=latest?latest.params[paramName]:{};
-  document.getElementById('infoContent').style.display='none';
   document.getElementById('infoLoading').style.display='';
   await loadParamInfo(paramName,val);
 }
 
 async function loadParamInfo(paramName,val){
-  try{
-    const prompt=`Sei un medico che spiega esami del sangue a un paziente. Spiega in italiano l'esame "${paramName}" in modo chiaro, completo e rassicurante. Struttura la risposta ESATTAMENTE in questo formato JSON (solo JSON, niente altro):
+  const aiPrompt=`Sei un medico che spiega esami del sangue a un paziente. Spiega in italiano l'esame "${paramName}" in modo chiaro, completo e rassicurante. Struttura la risposta ESATTAMENTE in questo formato JSON (solo JSON, niente altro):
 {
   "cosae": "Spiegazione dettagliata di cosa misura questo esame, a cosa serve, come viene prodotto o regolato nell'organismo (3-5 frasi)",
   "alto": "Cosa può significare un valore alto: cause principali, sintomi associati, quando preoccuparsi, quando è normale che sia alto (3-5 frasi)",
@@ -1407,42 +1375,100 @@ async function loadParamInfo(paramName,val){
   "consigli": "Cosa fare in generale: stile di vita, alimentazione, quando consultare il medico, frequenza dei controlli consigliata (2-3 frasi)"
 }`;
 
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+  // Try Anthropic first
+  if(_anthropicKey){
+    try{
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':_anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:aiPrompt}]})
+      });
+      if(resp.ok){
+        const data=await resp.json();
+        const text=data.content.map(b=>b.text||'').join('');
+        const info=JSON.parse(text.replace(/```json|```/g,'').trim());
+        _infoCache[paramName]=info;
+        renderInfoContent(info,val,'Claude');
+        return;
+      }
+      const err=await resp.json().catch(()=>({}));
+      if(resp.status===401||resp.status===403){_anthropicKey='';localStorage.removeItem('mc_akey');}
+      console.warn('Anthropic failed:',err.error?.message||resp.status,', trying Gemini...');
+    }catch(e){
+      console.warn('Anthropic error:',e.message,', trying Gemini...');
+    }
+  }
+
+  // Fallback: Gemini
+  if(!_geminiKey){
+    showApiKeyForm(paramName,'gemini');
+    return;
+  }
+  try{
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${_geminiKey}`;
+    const resp=await fetch(url,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':_anthropicKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:aiPrompt}]}],generationConfig:{temperature:0.3}})
     });
     if(!resp.ok){
       const err=await resp.json().catch(()=>({}));
-      if(resp.status===401||resp.status===403){
-        _anthropicKey='';localStorage.removeItem('mc_akey');
-      }
+      if(resp.status===400||resp.status===403){_geminiKey='';localStorage.removeItem('mc_gkey');}
       throw new Error(err.error?.message||'HTTP '+resp.status);
     }
     const data=await resp.json();
-    const text=data.content.map(b=>b.text||'').join('');
-    const clean=text.replace(/```json|```/g,'').trim();
-    const info=JSON.parse(clean);
+    const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    const info=JSON.parse(text.replace(/```json|```/g,'').trim());
     _infoCache[paramName]=info;
-    renderInfoContent(info,val);
+    renderInfoContent(info,val,'Gemini');
   }catch(e){
-    console.error('loadParamInfo error:',e);
+    console.error('Gemini error:',e);
     document.getElementById('infoLoading').style.display='none';
-    document.getElementById('infoContent').innerHTML=`<p style="color:var(--red)">Errore: ${e.message||'sconosciuto'}</p><button class="btn btn-outline btn-sm" onclick="_anthropicKey='';localStorage.removeItem('mc_akey');closeInfoModal()">Reimposta API key</button>`;
+    document.getElementById('infoContent').innerHTML=`
+      <p style="color:var(--red);margin-bottom:12px">Errore: ${e.message||'sconosciuto'}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="_anthropicKey='';localStorage.removeItem('mc_akey');showParamInfo('${paramName}')">Reimposta key Anthropic</button>
+        <button class="btn btn-outline btn-sm" onclick="_geminiKey='';localStorage.removeItem('mc_gkey');showParamInfo('${paramName}')">Reimposta key Gemini</button>
+      </div>`;
     document.getElementById('infoContent').style.display='';
   }
 }
 
-function renderInfoContent(info,val){
+function showApiKeyForm(paramName,provider){
+  const isGemini=provider==='gemini';
+  const link=isGemini?'aistudio.google.com/apikey':'console.anthropic.com';
+  const placeholder=isGemini?'AIza...':'sk-ant-...';
+  const inputId=isGemini?'geminiKeyInput':'apiKeyInput';
+  document.getElementById('infoLoading').style.display='none';
+  document.getElementById('infoContent').innerHTML=`
+    <p style="color:var(--text2);margin-bottom:6px">${_anthropicKey?'Anthropic non disponibile. Usa':'Inserisci una'} <strong style="color:var(--text)">${isGemini?'Gemini':'Anthropic'} API key</strong>${isGemini?' (gratuita)':''}.</p>
+    <p style="color:var(--text3);font-size:12px;margin-bottom:14px">Ottienila su <a href="https://${link}" target="_blank" style="color:var(--blue)">${link}</a></p>
+    <div style="display:flex;gap:8px">
+      <input id="${inputId}" type="password" placeholder="${placeholder}"
+        style="flex:1;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:9px 13px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none"
+        onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'"
+        onkeydown="if(event.key==='Enter')saveKeyAndLoad('${paramName}','${provider}')">
+      <button class="btn btn-primary" onclick="saveKeyAndLoad('${paramName}','${provider}')">Salva e carica</button>
+    </div>`;
+  document.getElementById('infoContent').style.display='';
+  setTimeout(()=>document.getElementById(inputId)?.focus(),100);
+}
+
+async function saveKeyAndLoad(paramName,provider){
+  const inputId=provider==='gemini'?'geminiKeyInput':'apiKeyInput';
+  const input=document.getElementById(inputId);
+  const k=input?input.value.trim():'';
+  if(!k){input.style.borderColor='var(--red)';return;}
+  if(provider==='gemini'){_geminiKey=k;localStorage.setItem('mc_gkey',k);}
+  else{_anthropicKey=k;localStorage.setItem('mc_akey',k);}
+  const latest=records.filter(r=>r.params[paramName]).sort((a,b)=>sortDate(b.date).localeCompare(sortDate(a.date)))[0];
+  const val=latest?latest.params[paramName]:{};
+  document.getElementById('infoContent').style.display='none';
+  document.getElementById('infoLoading').style.display='';
+  await loadParamInfo(paramName,val);
+}
+
+function renderInfoContent(info,val,provider){
   const st=val.value!==undefined?status(val.value,val.min,val.max):null;
   const highlight=st==='high'?'alto':st==='low'?'basso':null;
 
@@ -1466,7 +1492,10 @@ function renderInfoContent(info,val){
       <h4><span style="color:var(--green)">💡</span> Consigli generali</h4>
       <p>${info.consigli}</p>
     </div>
-    <p style="font-size:11px;color:var(--text3);margin-top:18px;border-top:1px solid var(--border);padding-top:12px">⚠ Queste informazioni sono di carattere generale e non sostituiscono il parere del tuo medico curante.</p>
+    <p style="font-size:11px;color:var(--text3);margin-top:18px;border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;align-items:center">
+      <span>⚠ Informazioni generali, non sostituiscono il parere del medico.</span>
+      ${provider?`<span style="background:var(--s3);border:1px solid var(--border);border-radius:4px;padding:2px 7px">${provider==='Gemini'?'✦':'✺'} ${provider}</span>`:''}
+    </p>
   `;
   document.getElementById('infoLoading').style.display='none';
   document.getElementById('infoContent').style.display='';
