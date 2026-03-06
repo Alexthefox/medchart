@@ -154,7 +154,8 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
       <span id="driveBarText">Non connesso</span>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-outline btn-sm" id="driveLoadBtn" onclick="loadFromDrive()" style="display:none">Carica da Drive</button>
+      <button class="btn btn-outline btn-sm" id="driveSyncBtn" onclick="syncToDrive()" style="display:none">↑ Salva su Drive</button>
+      <button class="btn btn-outline btn-sm" id="driveLoadBtn" onclick="loadFromDrive()" style="display:none">↓ Carica da Drive</button>
       <button class="btn btn-red btn-sm" id="driveDiscBtn" onclick="disconnectDrive()" style="display:none">Disconnetti</button>
     </div>
   </div>
@@ -260,7 +261,7 @@ const ALIASES={
   'eosinofili':'Eosinofili','basofili':'Basofili',
   's/p-glucosio':'Glucosio','glucosio':'Glucosio',
   's/p-urea':'Urea','urea':'Urea',
-  's/p-creatinina':'Creatinina','creatinina':'Creatinina',
+  's/p-creatinina':'Creatinina',
   'egfr':'eGFR','velocità di filtrazione':'eGFR',
   's/p-acido urico':'Acido Urico','acido urico':'Acido Urico',
   's/p-sodio':'Sodio','sodio':'Sodio',
@@ -311,29 +312,22 @@ const GROUPS={
 async function parsePDF(file){
   const ab=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:ab}).promise;
-  let lines=[];
+  // Collect raw items with page/Y/X coordinates
+  let allItems=[];
   for(let p=1;p<=pdf.numPages;p++){
     const pg=await pdf.getPage(p);
     const ct=await pg.getTextContent();
-    const byY={};
     ct.items.forEach(it=>{
-      const y=Math.round(it.transform[5]);
-      if(!byY[y])byY[y]=[];
-      byY[y].push({x:it.transform[4],t:it.str});
-    });
-    Object.keys(byY).sort((a,b)=>b-a).forEach(y=>{
-      const txt=byY[y].sort((a,b)=>a.x-b.x).map(i=>i.t).join(' ').trim();
-      if(txt)lines.push(txt);
+      if(it.str.trim())
+        allItems.push({page:p,y:Math.round(it.transform[5]),x:it.transform[4],t:it.str.trim()});
     });
   }
-  return buildRecord(lines,file.name);
+  return buildRecord(allItems,file.name);
 }
 
 function extractDate(lines){
   for(const l of lines){
-    let m=l.match(/prodotto il[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
-    if(m)return m[1];
-    m=l.match(/prodotto il[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+    const m=l.match(/prodotto il[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
     if(m)return m[1];
   }
   for(const l of lines){
@@ -355,50 +349,199 @@ function parseRange(s){
   return{min:null,max:null};
 }
 
-function buildRecord(lines,filename){
-  const date=extractDate(lines);
+function buildRecord(allItems,filename){
+  // ── Build sorted line array (top-to-bottom within each page) ──────────────
+  // Group items by page+Y (rounded to 3px tolerance)
+  const lineMap={};
+  allItems.forEach(it=>{
+    const key=`${it.page}_${Math.round(it.y/3)*3}`;
+    if(!lineMap[key])lineMap[key]={page:it.page,y:Math.round(it.y/3)*3,items:[]};
+    lineMap[key].items.push(it);
+  });
+  // Sort lines: by page ascending, then by Y descending (PDF Y=0 is bottom)
+  const sortedLines=Object.values(lineMap)
+    .sort((a,b)=>a.page!==b.page?a.page-b.page:b.y-a.y)
+    .map(l=>({
+      text:l.items.sort((a,b)=>a.x-b.x).map(i=>i.t).join(' ').trim(),
+      page:l.page,y:l.y
+    }))
+    .filter(l=>l.text);
+
+  const textLines=sortedLines.map(l=>l.text);
+  const date=extractDate(textLines);
   const params={};
 
-  lines.forEach(line=>{
-    // Remove [51] style lab codes before parsing
-    const cleanLine=line.replace(/\[\d+\]/g,'').trim();
-    const ll=cleanLine.toLowerCase();
-    for(const[alias,canon] of Object.entries(ALIASES)){
-      if(ll.includes(alias)){
-        // find first numeric value that looks like a result
-        // skip integers that look like year/doc numbers (4+ digits)
-        const nums=[...cleanLine.matchAll(/\b(\d{1,3}[.,]\d{1,3}|\d{1,3})\s*\*?/g)];
-        if(!nums.length)continue;
-        let value=null;
-        for(const nm of nums){
-          const v=parseFloat(nm[1].replace(',','.'));
-          if(!isNaN(v)&&v>0&&v<10000){value=v;break;}
-        }
-        if(value===null)continue;
+  // ── Keywords to skip (urine context) for serum params ─────────────────────
+  const BLOOD_ONLY=['Creatinina','Glucosio','Albumina'];
+  const URINE_KW=['urinaria','urinario','nelle urine','urine-','chimico fisico',
+                  '24 ore','mitto','creatinina urinaria','proteine totali urine'];
 
-        // unit
-        const um=cleanLine.match(/\b\d+[.,]?\d*\s*\*?\s*([a-zA-Z%\/\^]+)/);
-        const unit=um?um[1].replace(/^\*/,''):'';
-
-        // range — look for "X.XX - Y.YY" pattern, skip the value itself
-        let range='';
-        const rInLine=cleanLine.match(/(\d+[.,]?\d*)\s*[-–]\s*(\d+[.,]?\d*)/g);
-        if(rInLine&&rInLine.length>0){
-          // take last range match (more likely to be the reference range)
-          range=rInLine[rInLine.length-1];
-        }
-        const ltm=cleanLine.match(/<\s*[\d.,]+/);
-        const gtm=cleanLine.match(/>\s*[\d.,]+/);
-        if(!range&&ltm)range=ltm[0];
-        if(!range&&gtm)range=gtm[0];
-
-        if(!params[canon]){
-          params[canon]={value,unit,...parseRange(range)};
-        }
-        break;
-      }
+  // ── Helper: extract numeric value from a cleaned string ───────────────────
+  // Returns first plausible numeric result (not a year, not a 4+ digit code)
+  function extractValue(s){
+    const nums=[...s.matchAll(/\b(\d{1,3}[.,]\d{1,4}|\d{1,3})\b/g)];
+    for(const m of nums){
+      const v=parseFloat(m[1].replace(',','.'));
+      if(!isNaN(v)&&v>=0&&v<5000)return v;
     }
-  });
+    return null;
+  }
+
+  // ── Helper: extract unit from a string ────────────────────────────────────
+  function extractUnit(s){
+    // After a number (possibly with *), find first alpha token
+    const m=s.match(/\d\s*\*?\s+([a-zA-Z%][a-zA-Z0-9%\/\^\-\.]*)/);
+    return m?m[1]:'';
+  }
+
+  // ── Helper: extract range from a string ───────────────────────────────────
+  function extractRange(s){
+    // Try X - Y pattern (take the LAST occurrence, most likely to be ref range)
+    const all=[...s.matchAll(/([\d.,]+)\s*[-–]\s*([\d.,]+)/g)];
+    if(all.length){
+      const last=all[all.length-1];
+      return`${last[1]} - ${last[2]}`;
+    }
+    const lt=s.match(/<\s*[\d.,]+/);if(lt)return lt[0];
+    const gt=s.match(/>\s*[\d.,]+/);if(gt)return gt[0];
+    return'';
+  }
+
+  // ── Main parsing loop ──────────────────────────────────────────────────────
+  // Two formats detected in these PDFs:
+  //
+  // FORMAT A (Parma AOU): value in same line as param name
+  //   e.g. "TACROLIMUS 2.5 * ng/mL 5.0 - 20.0"
+  //   e.g. "Gamma-GT 207 * U/L 0 - 60"
+  //
+  // FORMAT B (AUSL Romagna - Forlimpopoli): 3-line pattern
+  //   Line i:   "[51] S/P-Gamma GT (GGT)"          ← param name only
+  //   Line i+1: "* U/L 8 - 61"                      ← unit + range, no value
+  //   Line i+2: "[51] 127"  or  "[51] 127 *"        ← value only (with lab code)
+
+  for(let i=0;i<sortedLines.length;i++){
+    const raw=sortedLines[i].text;
+    const clean=raw.replace(/\[\d+\]/g,'').trim();
+    const ll=clean.toLowerCase();
+
+    // Skip urine exam section header lines
+    if(/esame urine|chimico fisico urine|urine-chimico/i.test(ll))continue;
+
+    for(const[alias,canon] of Object.entries(ALIASES)){
+      if(!ll.includes(alias))continue;
+      if(BLOOD_ONLY.includes(canon)&&URINE_KW.some(k=>ll.includes(k)))continue;
+
+      // ── Detect format ──────────────────────────────────────────────────────
+      // Count real numbers in this line (excluding [51] tag digits)
+      const numsHere=[...clean.matchAll(/\b(\d{1,3}[.,]\d{1,4}|\d{1,3})\b/g)]
+        .map(m=>parseFloat(m[1].replace(',','.')))
+        .filter(v=>!isNaN(v)&&v>=0&&v<5000);
+
+      let value=null,unit='',range='';
+
+      // Check if next 1-2 lines contain a standalone value line (Format B)
+      // A "value line" = starts with [51] + single number, OR is just a number
+      let formatB=false;
+      for(let delta=1;delta<=3;delta++){
+        if(i+delta>=sortedLines.length)break;
+        const nextRaw=sortedLines[i+delta].text;
+        const nextClean=nextRaw.replace(/\[\d+\]/g,'').trim();
+        // Value line: contains only a number (possibly with * or unit suffix)
+        // and the raw line had a [51] or [11] lab code prefix
+        if(/^\[\d+\]/.test(nextRaw)){
+          const v=extractValue(nextClean);
+          // Make sure it's the only meaningful token (not a full param line)
+          const words=nextClean.split(/\s+/).filter(w=>w.length>0);
+          const isValueOnly=words.length<=3&&v!==null;
+          if(isValueOnly){
+            value=v;
+            // Unit and range come from the line between name and value
+            if(delta>1){
+              const midClean=sortedLines[i+delta-1].text.replace(/\[\d+\]/g,'').trim();
+              unit=extractUnit(midClean)||extractUnit(nextClean);
+              range=extractRange(midClean);
+            } else {
+              unit=extractUnit(nextClean);
+              // range might be on same name line or next
+              range=extractRange(clean)||extractRange(nextClean);
+            }
+            formatB=true;
+            break;
+          }
+        }
+      }
+
+      // Format A: value embedded in same line as param name
+      if(!formatB){
+        // Remove the alias text itself to avoid matching part of the param name as a number
+        const withoutAlias=clean.replace(new RegExp(alias,'i'),'').trim();
+        value=extractValue(withoutAlias);
+        if(value===null){
+          // Try full line
+          value=extractValue(clean);
+        }
+        unit=extractUnit(clean);
+        range=extractRange(clean);
+      }
+
+      if(value===null)continue;
+
+      // Sanity check: reject obviously wrong values
+      // e.g. Creatinina should be 0.5-15, not 50/100 (those are urine)
+      const sanity={
+        'Creatinina':[0.3,15],
+        'eGFR':[5,150],
+        'Emoglobina':[3,25],
+        'Tacrolimus':[0.1,50],
+        'GGT':[1,2000],
+        'ALT':[1,2000],
+        'AST':[1,2000],
+        'Fosfatasi Alc.':[1,2000],
+        'LDH':[1,5000],
+        'Bilirubina Tot.':[0.01,50],
+        'Bilirubina Dir.':[0.01,30],
+        'Glucosio':[10,500],
+        'Sodio':[100,200],
+        'Potassio':[1,10],
+        'Calcio Totale':[1,20],
+        'Magnesio':[0.1,10],
+        'Fosfato':[0.1,20],
+        'Albumina':[1,80],
+        'PTH':[1,1000],
+        'Vitamina D':[1,300],
+        'HbA1c':[10,200],
+        'TSH':[0.001,100],
+        'Piastrine':[10,1500],
+        'Globuli Bianchi':[0.1,100],
+        'Globuli Rossi':[0.5,10],
+        'Ematocrito':[5,70],
+        'MCV':[50,150],
+        'MCH':[10,50],
+        'MCHC':[20,45],
+        'Neutrofili':[0.01,20],
+        'Linfociti':[0.01,20],
+        'Monociti':[0.001,5],
+        'Ferritina':[1,5000],
+        'Ferro':[1,500],
+        'Colesterolo Tot.':[50,500],
+        'Colesterolo HDL':[5,200],
+        'Colesterolo LDL':[5,400],
+        'Trigliceridi':[10,2000],
+        'PCR':[0.1,500],
+        'Urea':[5,200],
+        'Acido Urico':[1,20],
+      };
+      if(sanity[canon]){
+        const[lo,hi]=sanity[canon];
+        if(value<lo||value>hi)continue;
+      }
+
+      if(!params[canon]){
+        params[canon]={value,unit,...parseRange(range)};
+      }
+      break;
+    }
+  }
 
   return{
     id:Date.now()+Math.random(),
@@ -484,7 +627,7 @@ async function handleFiles(files){
 
 // ── GOOGLE DRIVE ─────────────────────────────────────────────────────────────
 const CLIENT_ID='296034965237-68b303ithsjnuta8s7jtc5grhsvhbub2.apps.googleusercontent.com';
-const SCOPES='https://www.googleapis.com/auth/drive.file';
+const SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata';
 const FOLDER_NAME='MedChart';
 const DB_FILE='medchart_db.json';
 let driveToken=null;
@@ -550,6 +693,7 @@ function updateDriveUI(connected){
     dot.style.boxShadow='0 0 6px #3dffa0';
     txt.textContent='Google Drive connesso - sincronizzazione automatica attiva';
     loadBtn.style.display='';discBtn.style.display='';
+    document.getElementById('driveSyncBtn').style.display='';
   } else {
     btn.textContent='Drive';
     btn.style.borderColor='';btn.style.color='';
@@ -557,6 +701,7 @@ function updateDriveUI(connected){
     dot.style.background='var(--text3)';dot.style.boxShadow='';
     txt.textContent='Non connesso';
     loadBtn.style.display='none';discBtn.style.display='none';
+    document.getElementById('driveSyncBtn').style.display='none';
   }
 }
 
@@ -582,13 +727,29 @@ async function syncToDrive(){
   try{
     await ensureFolder();
     var content=JSON.stringify({records:records,selected:selected},null,2);
+
+    // Verify driveDbId is still valid
+    if(driveDbId){
+      try{
+        await gapi.client.drive.files.get({fileId:driveDbId,fields:'id'});
+      }catch(e){
+        // File not accessible anymore — reset and recreate
+        driveDbId=null;localStorage.removeItem('mc_ddb');
+      }
+    }
+
     if(!driveDbId){
+      // Search for existing file
       var res=await gapi.client.drive.files.list({
         q:"name='"+DB_FILE+"' and '"+driveFolderId+"' in parents and trashed=false",
         fields:'files(id)'
       });
-      if(res.result.files.length>0){driveDbId=res.result.files[0].id;localStorage.setItem('mc_ddb',driveDbId);}
+      if(res.result.files.length>0){
+        driveDbId=res.result.files[0].id;
+        localStorage.setItem('mc_ddb',driveDbId);
+      }
     }
+
     if(driveDbId){
       await fetch('https://www.googleapis.com/upload/drive/v3/files/'+driveDbId+'?uploadType=media',{
         method:'PATCH',
@@ -606,8 +767,8 @@ async function syncToDrive(){
       var data=await resp.json();
       driveDbId=data.id;localStorage.setItem('mc_ddb',driveDbId);
     }
-    toast('Sincronizzato con Drive','ok');
-  }catch(e){console.error(e);toast('Errore sync Drive','err');}
+    toast('Sincronizzato con Drive ✓','ok');
+  }catch(e){console.error('syncToDrive error:',e);toast('Errore sync Drive: '+e.message,'err');}
 }
 
 async function uploadPdfToDrive(file){
@@ -633,21 +794,31 @@ async function loadFromDrive(){
   if(!driveToken||!gapiReady){toast('Connetti prima Google Drive','err');return;}
   try{
     await ensureFolder();
+    // Always search by name — don't rely on cached driveDbId
     var res=await gapi.client.drive.files.list({
       q:"name='"+DB_FILE+"' and '"+driveFolderId+"' in parents and trashed=false",
-      fields:'files(id)'
+      fields:'files(id,name,modifiedTime)',
+      orderBy:'modifiedTime desc'
     });
-    if(!res.result.files.length){toast('Nessun database su Drive','err');return;}
+    if(!res.result.files||!res.result.files.length){
+      toast('Nessun dato su Drive — usa "↑ Salva su Drive" per creare il backup','err');
+      return;
+    }
     var fileId=res.result.files[0].id;
+    driveDbId=fileId;localStorage.setItem('mc_ddb',fileId);
     var resp=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media',{
       headers:{'Authorization':'Bearer '+driveToken.access_token}
     });
+    if(!resp.ok){throw new Error('HTTP '+resp.status);}
     var data=await resp.json();
+    if(!data.records||!data.records.length){
+      toast('Il file Drive esiste ma è vuoto — ricarica i PDF e premi "↑ Salva su Drive"','err');
+      return;
+    }
     records=data.records||[];selected=data.selected||[];
-    driveDbId=fileId;localStorage.setItem('mc_ddb',fileId);
     save();render();
-    toast('Caricati '+records.length+' analisi da Drive','ok');
-  }catch(e){console.error(e);toast('Errore caricamento Drive','err');}
+    toast('Caricati '+records.length+' analisi da Drive ✓','ok');
+  }catch(e){console.error('loadFromDrive error:',e);toast('Errore caricamento Drive: '+e.message,'err');}
 }
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
@@ -943,7 +1114,38 @@ function drawChart(paramName){
   });
 
   // Store data for tooltip
-  canvas._chartData={data,xPos,yPos,paramName,PAD,cw,H,W};
+  canvas._chartData={data,xPos,yPos,paramName,PAD,cw,H,W,DPR};
+  canvas._activeIdx=-1;
+
+  function redrawDots(highlightIdx){
+    // Redraw only dots & labels to show hover state
+    // (full redraw not needed — we just overlay highlight)
+    data.forEach((d,i)=>{
+      const x=xPos(i),y=yPos(d.value);
+      const ds=status(d.value,d.min,d.max);
+      const dc=statusColor(ds);
+      const isHover=(i===highlightIdx);
+      // clear dot area
+      ctx.save();
+      ctx.clearRect(x-10,y-14,20,28);
+      // redraw small area of gradient & line behind dot — skip for simplicity, just redraw dot
+      ctx.beginPath();ctx.arc(x,y,isHover?7:5,0,Math.PI*2);
+      ctx.fillStyle=dc;ctx.fill();
+      ctx.strokeStyle=var_bg();ctx.lineWidth=2;ctx.stroke();
+      // value label above dot on hover
+      if(isHover){
+        const lbl=`${d.value}`;
+        ctx.font='bold 11px IBM Plex Sans';
+        const tw=ctx.measureText(lbl).width;
+        ctx.fillStyle='rgba(10,12,16,0.85)';
+        ctx.fillRect(x-tw/2-4,y-24,tw+8,16);
+        ctx.fillStyle=dc;
+        ctx.textAlign='center';
+        ctx.fillText(lbl,x,y-11);
+      }
+      ctx.restore();
+    });
+  }
 
   // Tooltip events
   canvas.onmousemove=canvas.ontouchmove=function(e){
@@ -951,12 +1153,16 @@ function drawChart(paramName){
     const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
     const d2=canvas._chartData;
     // find nearest point
-    let best=null,bestDist=999;
+    let best=null,bestDist=999,bestIdx=-1;
     d2.data.forEach((pt,i)=>{
       const dist=Math.abs(d2.xPos(i)-cx);
-      if(dist<bestDist){bestDist=dist;best={pt,i};}
+      if(dist<bestDist){bestDist=dist;best={pt,i};bestIdx=i;}
     });
-    if(best&&bestDist<40){
+    if(best&&bestDist<50){
+      if(canvas._activeIdx!==bestIdx){
+        canvas._activeIdx=bestIdx;
+        redrawDots(bestIdx);
+      }
       const pt=best.pt;
       const st2=status(pt.value,pt.min,pt.max);
       const sc2=statusColor(st2);
@@ -975,11 +1181,20 @@ function drawChart(paramName){
       // position
       const pageX=e.touches?e.touches[0].pageX:e.pageX;
       const pageY=e.touches?e.touches[0].pageY:e.pageY;
-      tip.style.left=(pageX+12)+'px';
-      tip.style.top=(pageY-60)+'px';
+      const tipW=160;
+      const leftPos=pageX+16+tipW>window.innerWidth?pageX-tipW-12:pageX+12;
+      tip.style.left=leftPos+'px';
+      tip.style.top=(pageY-70)+'px';
+    } else {
+      if(canvas._activeIdx!==-1){canvas._activeIdx=-1;redrawDots(-1);}
+      document.getElementById('tip').style.display='none';
     }
   };
-  canvas.onmouseleave=()=>document.getElementById('tip').style.display='none';
+  canvas.onmouseleave=()=>{
+    canvas._activeIdx=-1;
+    redrawDots(-1);
+    document.getElementById('tip').style.display='none';
+  };
 }
 
 function var_bg(){return'#0a0c10';}
