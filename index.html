@@ -135,7 +135,11 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   .wrap{padding:18px 14px}
   .hdr-right .btn span{display:none}
   .cards{grid-template-columns:1fr}
-}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.info-section{margin-bottom:22px}
+.info-section h4{font-family:'Lora',serif;font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.info-section p{color:var(--text2);font-size:14px;line-height:1.7}
+.info-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
 </style>
 </head>
 <body>
@@ -243,6 +247,22 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   <div class="tip-val" id="tipVal"></div>
   <div class="tip-range" id="tipRange"></div>
   <div class="tip-status" id="tipStatus"></div>
+</div>
+
+<!-- INFO MODAL -->
+<div id="infoOverlay" onclick="closeInfoModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;backdrop-filter:blur(4px)"></div>
+<div id="infoModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:501;width:min(640px,92vw);max-height:82vh;overflow-y:auto;background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.7)">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:12px">
+    <h2 id="infoTitle" style="font-size:22px;color:var(--text)"></h2>
+    <button onclick="closeInfoModal()" style="background:var(--s3);border:none;color:var(--text2);width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">×</button>
+  </div>
+  <div id="infoBody">
+    <div id="infoLoading" style="text-align:center;padding:40px 0;color:var(--text2)">
+      <div style="font-size:32px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">⟳</div>
+      <p>Caricamento informazioni…</p>
+    </div>
+    <div id="infoContent" style="display:none"></div>
+  </div>
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1059,7 +1079,7 @@ function renderCharts(){
   grid.innerHTML=selected.map(p=>`<div class="chart-card" id="cc_${CSS.escape(p)}">
     <div class="chart-head">
       <div>
-        <h3 class="chart-title">${p}</h3>
+        <h3 class="chart-title" onclick="showParamInfo('${p}')" title="Clicca per sapere di più" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px">${p} <span style="font-size:13px;color:var(--blue);font-family:'IBM Plex Sans',sans-serif;font-weight:400">ⓘ</span></h3>
         <div class="chart-unit" id="cu_${CSS.escape(p)}"></div>
       </div>
       <div style="display:flex;align-items:flex-start;gap:12px">
@@ -1315,7 +1335,96 @@ function importData(e){
   e.target.value='';
 }
 
-// ── TOAST ─────────────────────────────────────────────────────────────────────
+// ── PARAM INFO MODAL ─────────────────────────────────────────────────────────
+const _infoCache={};
+
+async function showParamInfo(paramName){
+  // Get latest value for context
+  const latest=records
+    .filter(r=>r.params[paramName])
+    .sort((a,b)=>sortDate(b.date).localeCompare(sortDate(a.date)))[0];
+  const val=latest?latest.params[paramName]:{};
+
+  document.getElementById('infoTitle').textContent=paramName;
+  document.getElementById('infoLoading').style.display='';
+  document.getElementById('infoContent').style.display='none';
+  document.getElementById('infoOverlay').style.display='';
+  document.getElementById('infoModal').style.display='';
+
+  // Use cache to avoid repeated API calls
+  if(_infoCache[paramName]){
+    renderInfoContent(_infoCache[paramName],val);
+    return;
+  }
+
+  try{
+    const prompt=`Sei un medico che spiega esami del sangue a un paziente. Spiega in italiano l'esame "${paramName}" in modo chiaro, completo e rassicurante. Struttura la risposta ESATTAMENTE in questo formato JSON (solo JSON, niente altro):
+{
+  "cosae": "Spiegazione dettagliata di cosa misura questo esame, a cosa serve, come viene prodotto o regolato nell'organismo (3-5 frasi)",
+  "alto": "Cosa può significare un valore alto: cause principali, sintomi associati, quando preoccuparsi, quando è normale che sia alto (3-5 frasi)",
+  "basso": "Cosa può significare un valore basso: cause principali, sintomi associati, quando preoccuparsi, quando è normale che sia basso (3-5 frasi)",
+  "consigli": "Cosa fare in generale: stile di vita, alimentazione, quando consultare il medico, frequenza dei controlli consigliata (2-3 frasi)"
+}`;
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const text=data.content.map(b=>b.text||'').join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    const info=JSON.parse(clean);
+    _infoCache[paramName]=info;
+    renderInfoContent(info,val);
+  }catch(e){
+    document.getElementById('infoLoading').style.display='none';
+    document.getElementById('infoContent').innerHTML=`<p style="color:var(--red)">Errore nel caricamento delle informazioni. Riprova.</p>`;
+    document.getElementById('infoContent').style.display='';
+  }
+}
+
+function renderInfoContent(info,val){
+  const st=val.value!==undefined?status(val.value,val.min,val.max):null;
+  const highlight=st==='high'?'alto':st==='low'?'basso':null;
+
+  document.getElementById('infoContent').innerHTML=`
+    <div class="info-section">
+      <h4><span style="color:var(--blue)">🔬</span> Cos'è e a cosa serve</h4>
+      <p>${info.cosae}</p>
+    </div>
+    <hr class="info-divider">
+    <div class="info-section" style="${highlight==='alto'?'background:var(--red2);border:1px solid rgba(255,92,92,.2);border-radius:10px;padding:14px;':''}">
+      <h4><span style="color:var(--red)">↑</span> Valore alto${highlight==='alto'?' <span style="font-size:11px;background:var(--red);color:#fff;border-radius:4px;padding:2px 7px;font-family:IBM Plex Sans">Il tuo attuale</span>':''}</h4>
+      <p>${info.alto}</p>
+    </div>
+    <hr class="info-divider">
+    <div class="info-section" style="${highlight==='basso'?'background:var(--yellow2);border:1px solid rgba(255,204,68,.2);border-radius:10px;padding:14px;':''}">
+      <h4><span style="color:var(--yellow)">↓</span> Valore basso${highlight==='basso'?' <span style="font-size:11px;background:var(--yellow);color:#000;border-radius:4px;padding:2px 7px;font-family:IBM Plex Sans">Il tuo attuale</span>':''}</h4>
+      <p>${info.basso}</p>
+    </div>
+    <hr class="info-divider">
+    <div class="info-section">
+      <h4><span style="color:var(--green)">💡</span> Consigli generali</h4>
+      <p>${info.consigli}</p>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:18px;border-top:1px solid var(--border);padding-top:12px">⚠ Queste informazioni sono di carattere generale e non sostituiscono il parere del tuo medico curante.</p>
+  `;
+  document.getElementById('infoLoading').style.display='none';
+  document.getElementById('infoContent').style.display='';
+}
+
+function closeInfoModal(){
+  document.getElementById('infoOverlay').style.display='none';
+  document.getElementById('infoModal').style.display='none';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeInfoModal();});
+
+
 function toast(msg,type='ok'){
   const c=document.getElementById('toasts');
   const d=document.createElement('div');
