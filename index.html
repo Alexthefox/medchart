@@ -115,7 +115,7 @@ canvas{width:100%!important;height:100%!important}
 hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 
 /* TOOLTIP (custom) */
-.tip{position:absolute;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;font-size:12px;pointer-events:none;z-index:50;min-width:140px;box-shadow:0 8px 28px rgba(0,0,0,.5);display:none}
+.tip{position:fixed;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;font-size:12px;pointer-events:none;z-index:9999;min-width:140px;box-shadow:0 8px 28px rgba(0,0,0,.5);display:none}
 .tip-date{color:var(--text3);margin-bottom:4px;font-size:11px}
 .tip-val{font-size:18px;font-family:'Lora',serif;font-weight:600;margin-bottom:2px}
 .tip-range{color:var(--text3);font-size:11px}
@@ -206,7 +206,7 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+window.onerror=function(m,s,l,c,e){document.body.innerHTML+="<div style="position:fixed;top:0;left:0;right:0;background:#ff5c5c;color:#fff;padding:12px;font-size:13px;z-index:9999">⚠ Errore JS: "+m+" (riga "+l+")</div>";};pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 let records = JSON.parse(localStorage.getItem('mc_records')||'[]');
@@ -622,7 +622,7 @@ function drawChart(paramName){
 
   // Gradient fill
   const grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+ch);
-  grad.addColorStop(0,sc.replace(')',',0.18)').replace('rgb','rgba').replace('#3dffa0','rgba(61,255,160,0.18)').replace('#ff5c5c','rgba(255,92,92,0.18)').replace('#ffcc44','rgba(255,204,68,0.18)'));
+  const gradColor=sc==='#3dffa0'?'rgba(61,255,160,0.18)':sc==='#ff5c5c'?'rgba(255,92,92,0.18)':'rgba(255,204,68,0.18)';grad.addColorStop(0,gradColor);
   grad.addColorStop(1,'rgba(0,0,0,0)');
 
   // Area
