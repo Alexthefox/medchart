@@ -1078,11 +1078,14 @@ function renderCharts(){
   empty.style.display='none';
   grid.innerHTML=selected.map(p=>`<div class="chart-card" id="cc_${CSS.escape(p)}">
     <div class="chart-head">
-      <div>
-        <h3 class="chart-title" onclick="showParamInfo('${p}')" title="Clicca per sapere di più" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px">${p} <span style="font-size:13px;color:var(--blue);font-family:'IBM Plex Sans',sans-serif;font-weight:400">ⓘ</span></h3>
+      <div style="min-width:0">
+        <button onclick="showParamInfo('${p}')" style="background:none;border:none;padding:0;cursor:pointer;text-align:left;display:inline-flex;align-items:center;gap:8px;max-width:100%" title="Clicca per sapere di più">
+          <h3 class="chart-title" style="margin:0;color:var(--text)">${p}</h3>
+          <span style="font-size:13px;color:var(--blue);background:var(--blue2);border:1px solid rgba(92,159,255,.3);border-radius:5px;padding:2px 7px;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif;font-weight:500;flex-shrink:0">ⓘ info</span>
+        </button>
         <div class="chart-unit" id="cu_${CSS.escape(p)}"></div>
       </div>
-      <div style="display:flex;align-items:flex-start;gap:12px">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-shrink:0">
         <div class="chart-stats" id="cs_${CSS.escape(p)}"></div>
         <button class="btn btn-outline btn-sm" onclick="scrollToTop()" title="Torna alle analisi" style="margin-top:2px;flex-shrink:0">↑ Analisi</button>
       </div>
@@ -1337,9 +1340,18 @@ function importData(e){
 
 // ── PARAM INFO MODAL ─────────────────────────────────────────────────────────
 const _infoCache={};
+let _anthropicKey=localStorage.getItem('mc_akey')||'';
+
+function getAnthropicKey(){
+  if(_anthropicKey)return _anthropicKey;
+  const k=prompt('Inserisci la tua Anthropic API key per abilitare le spiegazioni AI:\n(Inizia con "sk-ant-...")\n\nOttienila su console.anthropic.com');
+  if(!k)return null;
+  _anthropicKey=k.trim();
+  localStorage.setItem('mc_akey',_anthropicKey);
+  return _anthropicKey;
+}
 
 async function showParamInfo(paramName){
-  // Get latest value for context
   const latest=records
     .filter(r=>r.params[paramName])
     .sort((a,b)=>sortDate(b.date).localeCompare(sortDate(a.date)))[0];
@@ -1351,9 +1363,16 @@ async function showParamInfo(paramName){
   document.getElementById('infoOverlay').style.display='';
   document.getElementById('infoModal').style.display='';
 
-  // Use cache to avoid repeated API calls
   if(_infoCache[paramName]){
     renderInfoContent(_infoCache[paramName],val);
+    return;
+  }
+
+  const apiKey=getAnthropicKey();
+  if(!apiKey){
+    document.getElementById('infoLoading').style.display='none';
+    document.getElementById('infoContent').innerHTML=`<p style="color:var(--text2)">API key non inserita. Riclicca ⓘ info per riprovare.</p>`;
+    document.getElementById('infoContent').style.display='';
     return;
   }
 
@@ -1368,13 +1387,26 @@ async function showParamInfo(paramName){
 
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:1000,
         messages:[{role:'user',content:prompt}]
       })
     });
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({}));
+      // If auth error, clear saved key so user can re-enter
+      if(resp.status===401||resp.status===403){
+        _anthropicKey='';localStorage.removeItem('mc_akey');
+      }
+      throw new Error(err.error?.message||'HTTP '+resp.status);
+    }
     const data=await resp.json();
     const text=data.content.map(b=>b.text||'').join('');
     const clean=text.replace(/```json|```/g,'').trim();
@@ -1383,7 +1415,7 @@ async function showParamInfo(paramName){
     renderInfoContent(info,val);
   }catch(e){
     document.getElementById('infoLoading').style.display='none';
-    document.getElementById('infoContent').innerHTML=`<p style="color:var(--red)">Errore nel caricamento delle informazioni. Riprova.</p>`;
+    document.getElementById('infoContent').innerHTML=`<p style="color:var(--red)">Errore: ${e.message||'sconosciuto'}.<br><small style="color:var(--text3)">Controlla la API key o riprova.</small></p>`;
     document.getElementById('infoContent').style.display='';
   }
 }
