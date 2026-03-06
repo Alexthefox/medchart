@@ -1405,11 +1405,16 @@ async function loadParamInfo(paramName,val){
     showApiKeyForm(paramName,'gemini');
     return;
   }
-  const geminiModels=['gemini-1.5-flash','gemini-1.5-flash-latest','gemini-pro'];
+  const geminiModels=[
+    {v:'v1beta',m:'gemini-2.0-flash'},
+    {v:'v1beta',m:'gemini-1.5-flash'},
+    {v:'v1',m:'gemini-1.5-flash'},
+    {v:'v1',m:'gemini-pro'},
+  ];
   let lastErr='';
-  for(const model of geminiModels){
+  for(const {v,m} of geminiModels){
     try{
-      const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${_geminiKey}`;
+      const url=`https://generativelanguage.googleapis.com/${v}/models/${m}:generateContent?key=${_geminiKey}`;
       const resp=await fetch(url,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -1419,7 +1424,7 @@ async function loadParamInfo(paramName,val){
         const err=await resp.json().catch(()=>({}));
         if(resp.status===400||resp.status===403){_geminiKey='';localStorage.removeItem('mc_gkey');}
         lastErr=err.error?.message||'HTTP '+resp.status;
-        console.warn(`Gemini ${model} failed:`,lastErr);
+        console.warn(`Gemini ${v}/${m} failed:`,lastErr);
         continue;
       }
       const data=await resp.json();
@@ -1430,7 +1435,7 @@ async function loadParamInfo(paramName,val){
       return;
     }catch(e){
       lastErr=e.message;
-      console.warn(`Gemini ${model} error:`,e.message);
+      console.warn(`Gemini ${v}/${m} error:`,e.message);
     }
   }
   // All models failed
