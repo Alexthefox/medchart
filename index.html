@@ -425,8 +425,9 @@ function buildRecord(allItems,filename){
       return true;
     });
 
-  // DEBUG: log all parsed lines (remove after fixing)
-  console.log('=== PARSER LINES ===', sortedLines.map(l=>`[p${l.page} y${l.y}] ${l.text}`));
+  // DEBUG focused
+  const debugParams=['Potassio','AST','Bilirubina Dir.','Linfociti','Neutrofili','Eosinofili','Basofili'];
+  console.log('=== PARSER START', filename, sortedLines.length, 'lines ===');
 
   const textLines=sortedLines.map(l=>l.text);
   const date=extractDate(textLines);
@@ -622,8 +623,13 @@ function buildRecord(allItems,filename){
       }
 
       if(!params[canon]){
-        console.log(`PARSED: ${canon} = ${value} (range: ${range}) from line ${i}: "${raw}"`);
+        if(debugParams.includes(canon)){
+          console.log(`✅ PARSED ${canon}=${value} range="${range}" | line[${i}]:"${raw}" | formatB=${formatB}`);
+          if(formatB) console.log(`   value-line: "${sortedLines[i+ (()=>{for(let d=1;d<=6;d++){const nr=sortedLines[i+d]?.text||'';if(/^\[\d+\]/.test(nr)||/^\d/.test(nr.replace(/\[\d+\]/g,'').trim()))return d;}return 1})()]?.text}"`);
+        }
         params[canon]={value,unit,...parseRange(range)};
+      } else if(debugParams.includes(canon)){
+        console.log(`⚠️ SKIP ${canon}=${value} (already set to ${params[canon].value}) | line:"${raw}"`);
       }
       break;
     }
