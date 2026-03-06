@@ -1391,9 +1391,10 @@ async function loadParamInfo(paramName,val){
         renderInfoContent(info,val,'Claude');
         return;
       }
+      // Any non-ok response → fall through to Gemini silently
       const err=await resp.json().catch(()=>({}));
       if(resp.status===401||resp.status===403){_anthropicKey='';localStorage.removeItem('mc_akey');}
-      console.warn('Anthropic failed:',err.error?.message||resp.status,', trying Gemini...');
+      console.warn('Anthropic failed ('+resp.status+'):',err.error?.message,', trying Gemini...');
     }catch(e){
       console.warn('Anthropic error:',e.message,', trying Gemini...');
     }
