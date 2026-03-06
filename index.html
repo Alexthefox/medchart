@@ -204,9 +204,15 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   <div class="tip-status" id="tipStatus"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
-window.onerror=function(m,s,l,c,e){document.body.innerHTML+="<div style="position:fixed;top:0;left:0;right:0;background:#ff5c5c;color:#fff;padding:12px;font-size:13px;z-index:9999">⚠ Errore JS: "+m+" (riga "+l+")</div>";};pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc='';
+window.onerror=function(m,s,l,c,e){
+  var d=document.createElement('div');
+  d.style.cssText='position:fixed;top:0;left:0;right:0;background:#ff5c5c;color:#fff;padding:12px;font-size:13px;z-index:9999';
+  d.textContent='Errore JS: '+m+' (riga '+l+')';
+  document.body.appendChild(d);
+};
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 let records = JSON.parse(localStorage.getItem('mc_records')||'[]');
@@ -415,6 +421,7 @@ function ev(e,t){
 
 // ── FILE HANDLING ─────────────────────────────────────────────────────────────
 async function handleFiles(files){
+
   const pdfs=[...files].filter(f=>f.name.endsWith('.pdf'));
   if(!pdfs.length){toast('Seleziona file PDF validi','err');return;}
   const btn=document.getElementById('uploadBtn');
@@ -440,7 +447,7 @@ async function handleFiles(files){
     toast(`${newRecs.length} analisi importata${newRecs.length>1?'e':''} ✓`,'ok');
   }
 
-  btn.disabled=false;btn.textContent='+ Aggiungi PDF';
+  btn.disabled=false;btn.textContent='+ Aggiungi PDF';document.getElementById('pdfInput').value='';
   prog.style.display='none';
 }
 
@@ -708,7 +715,7 @@ function deleteRec(id){
 }
 function clearAll(){
   if(!confirm('Eliminare tutte le analisi salvate?'))return;
-  records=[];selected=[];save();render();
+  records=[];selected=[];save();render();document.getElementById('pdfInput').value='';
   toast('Dati cancellati','ok');
 }
 function toggleParam(p){
