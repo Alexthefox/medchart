@@ -410,7 +410,8 @@ function buildRecord(allItems,filename){
   // ── Keywords to skip (urine context) for serum params ─────────────────────
   const BLOOD_ONLY=['Creatinina','Glucosio','Albumina'];
   const URINE_KW=['urinaria','urinario','nelle urine','urine-','chimico fisico',
-                  '24 ore','mitto','creatinina urinaria','proteine totali urine'];
+                  '24 ore','mitto','creatinina urinaria','proteine totali urine',
+                  'elettroforesi','siero-elettroforesi','proteine siero'];
 
   // ── Helper: extract numeric value from a cleaned string ───────────────────
   // Returns first plausible numeric result (not a year, not a 4+ digit code)
@@ -490,10 +491,12 @@ function buildRecord(allItems,filename){
         if(/^\(.*\)/.test(nextClean))continue;
         // Skip long disclaimer lines
         if(nextClean.length>100)continue;
+        // Stop immediately if we hit another param name (even at delta=1)
+        const hasParamAlias=Object.keys(ALIASES).some(a=>nextLl.includes(a)&&nextClean.length<80);
+        if(hasParamAlias)break;
         const startsWithCode=/^\[\d+\]/.test(nextRaw);
         const startsWithNumber=/^\d/.test(nextClean);
-        const hasParamAlias=Object.keys(ALIASES).some(a=>nextLl.includes(a));
-        if(startsWithCode||(startsWithNumber&&!hasParamAlias)){
+        if(startsWithCode||(startsWithNumber)){
           const v=extractValue(nextClean);
           const words=nextClean.split(/\s+/).filter(w=>w.length>0);
           const maxTokens=startsWithCode?3:7;
@@ -516,10 +519,9 @@ function buildRecord(allItems,filename){
             break;
           }
         }
-        // Stop looking if we hit another param name line
+        // Stop looking if we hit another param name line (delta>1 fallback)
         if(delta>1&&!startsWithNumber){
-          const isAnotherParam=Object.keys(ALIASES).some(a=>nextLl.includes(a)&&nextClean.length<80);
-          if(isAnotherParam)break;
+          if(hasParamAlias)break;
         }
       }
 
@@ -550,15 +552,15 @@ function buildRecord(allItems,filename){
         'AST':[1,2000],
         'Fosfatasi Alc.':[1,2000],
         'LDH':[1,5000],
-        'Bilirubina Tot.':[0.01,50],
-        'Bilirubina Dir.':[0.01,30],
+        'Bilirubina Tot.':[0.01,15],
+        'Bilirubina Dir.':[0.01,5],
         'Glucosio':[10,500],
         'Sodio':[100,200],
-        'Potassio':[1,10],
-        'Calcio Totale':[1,20],
+        'Potassio':[1,8],
+        'Calcio Totale':[1,15],
         'Magnesio':[0.1,10],
         'Fosfato':[0.1,20],
-        'Albumina':[1,80],
+        'Albumina':[20,60],
         'PTH':[1,1000],
         'Vitamina D':[1,300],
         'HbA1c':[10,200],
@@ -864,7 +866,20 @@ async function syncToDrive(){
       driveDbId=data.id;localStorage.setItem('mc_ddb',driveDbId);
     }
     toast('Sincronizzato con Drive ✓','ok');
-  }catch(e){console.error('syncToDrive error:',e);toast('Errore sync Drive: '+driveErrMsg(e),'err');}
+  }catch(e){
+    // If 401, try silent token refresh once and retry
+    const msg=driveErrMsg(e);
+    if(msg.includes('401')||msg.includes('invalid authentication')||msg.includes('credentials')){
+      driveToken._expiresAt=0; // force refresh
+      if(await ensureValidToken()){
+        try{await syncToDrive();return;}catch(_){}
+      }
+      toast('Sessione Drive scaduta — riconnetti Drive','err');
+      updateDriveUI(false);driveToken=null;localStorage.removeItem('mc_dtoken');
+      return;
+    }
+    console.error('syncToDrive error:',e);toast('Errore sync Drive: '+msg,'err');
+  }
 }
 
 async function uploadPdfToDrive(file){
@@ -1141,7 +1156,7 @@ function drawChart(paramName){
   const ctx=canvas.getContext('2d');
   ctx.scale(DPR,DPR);
 
-  const PAD={top:18,right:20,bottom:36,left:52};
+  const PAD={top:22,right:20,bottom:36,left:56};
   const cw=W-PAD.left-PAD.right;
   const ch=H-PAD.top-PAD.bottom;
 
@@ -1183,16 +1198,16 @@ function drawChart(paramName){
       const y=yPos(data[0].min);
       ctx.save();ctx.strokeStyle='#ffcc44';ctx.lineWidth=1;ctx.setLineDash([5,4]);
       ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
-      ctx.fillStyle='#ffcc44';ctx.font='10px IBM Plex Sans';ctx.textAlign='left';ctx.setLineDash([]);
-      ctx.fillText('min '+data[0].min,PAD.left+3,y-3);
+      ctx.fillStyle='#ffcc44';ctx.font='10px IBM Plex Sans';ctx.textAlign='right';ctx.setLineDash([]);
+      ctx.fillText('▸ min '+data[0].min,PAD.left+cw-4,y-4);
       ctx.restore();
     }
     if(data[0].max!==null){
       const y=yPos(data[0].max);
       ctx.save();ctx.strokeStyle='#ff5c5c';ctx.lineWidth=1;ctx.setLineDash([5,4]);
       ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cw,y);ctx.stroke();
-      ctx.fillStyle='#ff5c5c';ctx.font='10px IBM Plex Sans';ctx.textAlign='left';ctx.setLineDash([]);
-      ctx.fillText('max '+data[0].max,PAD.left+3,y-3);
+      ctx.fillStyle='#ff5c5c';ctx.font='10px IBM Plex Sans';ctx.textAlign='right';ctx.setLineDash([]);
+      ctx.fillText('▸ max '+data[0].max,PAD.left+cw-4,y-4);
       ctx.restore();
     }
 
@@ -1406,29 +1421,7 @@ async function loadParamInfo(paramName,val){
     return;
   }
   // Auto-discover available Gemini models first
-  let geminiModels=[];
-  try{
-    const listResp=await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${_geminiKey}`);
-    if(listResp.ok){
-      const listData=await listResp.json();
-      // Filter models that support generateContent and prefer flash/pro
-      geminiModels=(listData.models||[])
-        .filter(m=>m.supportedGenerationMethods?.includes('generateContent'))
-        .map(m=>m.name.replace('models/',''))
-        .filter(m=>/flash|pro|gemini/i.test(m))
-        .sort((a,b)=>{
-          // Prefer flash models, then pro
-          const score=m=>/flash/.test(m)?0:/pro/.test(m)?1:2;
-          return score(a)-score(b);
-        });
-      console.log('Available Gemini models:',geminiModels);
-    }
-  }catch(e){console.warn('ListModels failed:',e);}
-
-  // Fallback list if discovery fails
-  if(!geminiModels.length){
-    geminiModels=['gemini-2.5-flash'];
-  }
+  let geminiModels=['gemini-2.5-flash'];
 
   let lastErr='';
   for(const m of geminiModels){
