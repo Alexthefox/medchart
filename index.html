@@ -141,10 +141,23 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
     <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Esporta JSON</button>
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('importJSON').click()">⬆ Importa JSON</button>
     <input type="file" id="importJSON" accept=".json" style="display:none" onchange="importData(event)">
+    <button class="btn btn-outline btn-sm" id="driveBtn" onclick="toggleDrive()">Drive</button>
   </div>
 </header>
 
 <main class="wrap">
+
+  <!-- DRIVE BAR -->
+  <div id="driveBar" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:20px;display:none;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="driveDot" style="width:8px;height:8px;border-radius:50%;background:var(--text3);display:inline-block"></span>
+      <span id="driveBarText">Non connesso</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" id="driveLoadBtn" onclick="loadFromDrive()" style="display:none">Carica da Drive</button>
+      <button class="btn btn-red btn-sm" id="driveDiscBtn" onclick="disconnectDrive()" style="display:none">Disconnetti</button>
+    </div>
+  </div>
 
   <!-- UPLOAD -->
   <div class="drop" id="drop" onclick="document.getElementById('pdfInput').click()"
@@ -215,6 +228,8 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   <div class="tip-status" id="tipStatus"></div>
 </div>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='';
@@ -232,6 +247,7 @@ let selected = JSON.parse(localStorage.getItem('mc_selected')||'[]');
 function save(){
   localStorage.setItem('mc_records',JSON.stringify(records));
   localStorage.setItem('mc_selected',JSON.stringify(selected));
+  if(driveToken)syncToDrive();
 }
 
 // ── ALIASES ───────────────────────────────────────────────────────────────────
@@ -449,6 +465,7 @@ async function handleFiles(files){
     try{
       const r=await parsePDF(pdfs[i]);
       newRecs.push(r);
+      if(driveToken)uploadPdfToDrive(pdfs[i]);
     }catch(e){toast(`Errore: ${pdfs[i].name}`,'err');}
     bar.style.width=`${((i+1)/pdfs.length)*100}%`;
   }
@@ -463,6 +480,174 @@ async function handleFiles(files){
 
   btn.disabled=false;btn.textContent='+ Aggiungi PDF';document.getElementById('pdfInput').value='';
   prog.style.display='none';
+}
+
+// ── GOOGLE DRIVE ─────────────────────────────────────────────────────────────
+const CLIENT_ID='296034965237-68b303ithsjnuta8s7jtc5grhsvhbub2.apps.googleusercontent.com';
+const SCOPES='https://www.googleapis.com/auth/drive.file';
+const FOLDER_NAME='MedChart';
+const DB_FILE='medchart_db.json';
+let driveToken=null;
+let driveFolderId=localStorage.getItem('mc_dfolder')||null;
+let driveDbId=localStorage.getItem('mc_ddb')||null;
+let gapiReady=false;
+
+function initGapi(){
+  if(typeof gapi==='undefined'||typeof google==='undefined'){setTimeout(initGapi,800);return;}
+  gapi.load('client',async function(){
+    await gapi.client.init({});
+    await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+    gapiReady=true;
+    var saved=localStorage.getItem('mc_dtoken');
+    if(saved){driveToken=JSON.parse(saved);gapi.client.setToken(driveToken);updateDriveUI(true);}
+  });
+}
+window.addEventListener('load',function(){setTimeout(initGapi,1200);});
+
+function toggleDrive(){
+  if(driveToken){disconnectDrive();}else{connectDrive();}
+}
+
+function connectDrive(){
+  if(!gapiReady){toast('API Google non pronta, riprova tra un secondo','err');return;}
+  var client=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,scope:SCOPES,
+    callback:async function(resp){
+      if(resp.error){toast('Errore login: '+resp.error,'err');return;}
+      driveToken=resp;gapi.client.setToken(driveToken);
+      localStorage.setItem('mc_dtoken',JSON.stringify(driveToken));
+      updateDriveUI(true);
+      toast('Google Drive connesso!','ok');
+      await ensureFolder();
+      await syncToDrive();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function disconnectDrive(){
+  if(driveToken)google.accounts.oauth2.revoke(driveToken.access_token,function(){});
+  driveToken=null;driveFolderId=null;driveDbId=null;
+  localStorage.removeItem('mc_dtoken');localStorage.removeItem('mc_dfolder');localStorage.removeItem('mc_ddb');
+  gapi.client.setToken(null);
+  updateDriveUI(false);
+  toast('Drive disconnesso','ok');
+}
+
+function updateDriveUI(connected){
+  var btn=document.getElementById('driveBtn');
+  var bar=document.getElementById('driveBar');
+  var dot=document.getElementById('driveDot');
+  var txt=document.getElementById('driveBarText');
+  var loadBtn=document.getElementById('driveLoadBtn');
+  var discBtn=document.getElementById('driveDiscBtn');
+  if(connected){
+    btn.textContent='Drive ON';
+    btn.style.borderColor='rgba(61,255,160,.4)';
+    btn.style.color='var(--green)';
+    bar.style.display='flex';
+    dot.style.background='#3dffa0';
+    dot.style.boxShadow='0 0 6px #3dffa0';
+    txt.textContent='Google Drive connesso - sincronizzazione automatica attiva';
+    loadBtn.style.display='';discBtn.style.display='';
+  } else {
+    btn.textContent='Drive';
+    btn.style.borderColor='';btn.style.color='';
+    bar.style.display='none';
+    dot.style.background='var(--text3)';dot.style.boxShadow='';
+    txt.textContent='Non connesso';
+    loadBtn.style.display='none';discBtn.style.display='none';
+  }
+}
+
+async function ensureFolder(){
+  if(driveFolderId)return;
+  var res=await gapi.client.drive.files.list({
+    q:"name='"+FOLDER_NAME+"' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+    fields:'files(id)'
+  });
+  if(res.result.files.length>0){
+    driveFolderId=res.result.files[0].id;
+  } else {
+    var r=await gapi.client.drive.files.create({
+      resource:{name:FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'},fields:'id'
+    });
+    driveFolderId=r.result.id;
+  }
+  localStorage.setItem('mc_dfolder',driveFolderId);
+}
+
+async function syncToDrive(){
+  if(!driveToken||!gapiReady)return;
+  try{
+    await ensureFolder();
+    var content=JSON.stringify({records:records,selected:selected},null,2);
+    if(!driveDbId){
+      var res=await gapi.client.drive.files.list({
+        q:"name='"+DB_FILE+"' and '"+driveFolderId+"' in parents and trashed=false",
+        fields:'files(id)'
+      });
+      if(res.result.files.length>0){driveDbId=res.result.files[0].id;localStorage.setItem('mc_ddb',driveDbId);}
+    }
+    if(driveDbId){
+      await fetch('https://www.googleapis.com/upload/drive/v3/files/'+driveDbId+'?uploadType=media',{
+        method:'PATCH',
+        headers:{'Authorization':'Bearer '+driveToken.access_token,'Content-Type':'application/json'},
+        body:content
+      });
+    } else {
+      var meta={name:DB_FILE,parents:[driveFolderId]};
+      var form=new FormData();
+      form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+      form.append('file',new Blob([content],{type:'application/json'}));
+      var resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+        method:'POST',headers:{'Authorization':'Bearer '+driveToken.access_token},body:form
+      });
+      var data=await resp.json();
+      driveDbId=data.id;localStorage.setItem('mc_ddb',driveDbId);
+    }
+    toast('Sincronizzato con Drive','ok');
+  }catch(e){console.error(e);toast('Errore sync Drive','err');}
+}
+
+async function uploadPdfToDrive(file){
+  if(!driveToken||!gapiReady)return;
+  try{
+    await ensureFolder();
+    var res=await gapi.client.drive.files.list({
+      q:"name='"+file.name+"' and '"+driveFolderId+"' in parents and trashed=false",
+      fields:'files(id)'
+    });
+    if(res.result.files.length>0)return;
+    var form=new FormData();
+    var meta={name:file.name,parents:[driveFolderId]};
+    form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+    form.append('file',file);
+    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',headers:{'Authorization':'Bearer '+driveToken.access_token},body:form
+    });
+  }catch(e){console.error(e);}
+}
+
+async function loadFromDrive(){
+  if(!driveToken||!gapiReady){toast('Connetti prima Google Drive','err');return;}
+  try{
+    await ensureFolder();
+    var res=await gapi.client.drive.files.list({
+      q:"name='"+DB_FILE+"' and '"+driveFolderId+"' in parents and trashed=false",
+      fields:'files(id)'
+    });
+    if(!res.result.files.length){toast('Nessun database su Drive','err');return;}
+    var fileId=res.result.files[0].id;
+    var resp=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media',{
+      headers:{'Authorization':'Bearer '+driveToken.access_token}
+    });
+    var data=await resp.json();
+    records=data.records||[];selected=data.selected||[];
+    driveDbId=fileId;localStorage.setItem('mc_ddb',fileId);
+    save();render();
+    toast('Caricati '+records.length+' analisi da Drive','ok');
+  }catch(e){console.error(e);toast('Errore caricamento Drive','err');}
 }
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
