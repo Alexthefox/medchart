@@ -441,35 +441,48 @@ function buildRecord(allItems,filename){
 
       let value=null,unit='',range='';
 
-      // Check if next 1-3 lines contain a standalone [51] value line (Format B)
+      // Check if next 1-6 lines contain a standalone value line (Format B)
+      // B1: "[51] 9.6" — lab code + single number
+      // B2: "9.6 ug/L 5.0 - 20.0" — number-start line after param name (e.g. Tacrolimus)
       let formatB=false;
-      for(let delta=1;delta<=4;delta++){
+      for(let delta=1;delta<=6;delta++){
         if(i+delta>=sortedLines.length)break;
         const nextRaw=sortedLines[i+delta].text;
         const nextClean=nextRaw.replace(/\[\d+\]/g,'').trim();
-        if(/^\[\d+\]/.test(nextRaw)){
+        const nextLl=nextClean.toLowerCase();
+        // Skip parenthetical method notes e.g. "(Siemens Dimension - ACMIA)"
+        if(/^\(.*\)/.test(nextClean))continue;
+        // Skip long disclaimer lines
+        if(nextClean.length>100)continue;
+        const startsWithCode=/^\[\d+\]/.test(nextRaw);
+        const startsWithNumber=/^\d/.test(nextClean);
+        const hasParamAlias=Object.keys(ALIASES).some(a=>nextLl.includes(a));
+        if(startsWithCode||(startsWithNumber&&!hasParamAlias)){
           const v=extractValue(nextClean);
           const words=nextClean.split(/\s+/).filter(w=>w.length>0);
-          const isValueOnly=words.length<=3&&v!==null;
-          if(isValueOnly){
+          const maxTokens=startsWithCode?3:7;
+          if(words.length<=maxTokens&&v!==null){
             value=v;
-            // Unit and range come from the line between name and value
-            if(delta>1){
-              const midClean=sortedLines[i+delta-1].text.replace(/\[\d+\]/g,'').trim();
-              unit=extractUnit(midClean)||extractUnit(nextClean);
-              range=extractRange(midClean);
+            if(startsWithCode){
+              if(delta>1){
+                const midClean=sortedLines[i+delta-1].text.replace(/\[\d+\]/g,'').trim();
+                unit=extractUnit(midClean)||extractUnit(nextClean);
+                range=extractRange(midClean);
+              } else {
+                unit=extractUnit(nextClean);
+                range=extractRange(clean)||extractRange(nextClean);
+              }
             } else {
               unit=extractUnit(nextClean);
-              range=extractRange(clean)||extractRange(nextClean);
+              range=extractRange(nextClean);
             }
             formatB=true;
             break;
           }
         }
-        // Stop looking if we hit another param name line (alias match)
-        if(delta>1){
-          const nl=sortedLines[i+delta].text.replace(/\[\d+\]/g,'').toLowerCase();
-          const isAnotherParam=Object.keys(ALIASES).some(a=>nl.includes(a)&&nl.length<80);
+        // Stop looking if we hit another param name line
+        if(delta>1&&!startsWithNumber){
+          const isAnotherParam=Object.keys(ALIASES).some(a=>nextLl.includes(a)&&nextClean.length<80);
           if(isAnotherParam)break;
         }
       }
@@ -1141,11 +1154,17 @@ function drawChart(paramName){
   // Tooltip events
   canvas.onmousemove=canvas.ontouchmove=function(e){
     const rect=canvas.getBoundingClientRect();
-    const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+    const clientX=e.touches?e.touches[0].clientX:e.clientX;
+    const clientY=e.touches?e.touches[0].clientY:e.clientY;
+    // rect.width is the actual rendered CSS width (may differ from W due to CSS scaling)
+    // xPos() works in W-space, so scale cx accordingly
     const d2=canvas._chartData;
+    const scale=d2.W/rect.width;
+    const cx=(clientX-rect.left)*scale;
     let best=null,bestDist=999,bestIdx=-1;
     d2.data.forEach((pt,i)=>{
-      const dist=Math.abs(d2.xPos(i)-cx);
+      const px=d2.xPos(i);
+      const dist=Math.abs(px-cx);
       if(dist<bestDist){bestDist=dist;best={pt,i};bestIdx=i;}
     });
     if(best&&bestDist<50){
