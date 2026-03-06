@@ -179,6 +179,16 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
         <button class="btn btn-outline btn-sm" onclick="deselectAll()">Nessuno</button>
       </div>
     </div>
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <input id="paramSearch" type="text" placeholder="🔍 Cerca parametro..." oninput="filterParams(this.value)"
+        style="background:var(--s2);border:1px solid var(--border2);border-radius:9px;padding:8px 14px;
+        color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;
+        transition:.2s;flex:1;min-width:180px;max-width:300px"
+        onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border2)'">
+      <button class="btn btn-outline btn-sm" id="searchJumpBtn" style="display:none" onclick="jumpToSearchResult()">
+        ↗ Vai al grafico
+      </button>
+    </div>
     <div id="paramSel"></div>
     <div id="chartsGrid" style="display:grid;gap:20px;margin-top:24px"></div>
     <div class="empty" id="selEmpty">
@@ -453,6 +463,55 @@ async function handleFiles(files){
 
   btn.disabled=false;btn.textContent='+ Aggiungi PDF';document.getElementById('pdfInput').value='';
   prog.style.display='none';
+}
+
+// ── SEARCH ───────────────────────────────────────────────────────────────────
+function filterParams(query){
+  const q=query.toLowerCase().trim();
+  const jumpBtn=document.getElementById('searchJumpBtn');
+
+  // Show/hide jump button based on exact or single match
+  if(q.length>=2){
+    const ap=allParams();
+    const matches=ap.filter(p=>p.toLowerCase().includes(q));
+    jumpBtn.style.display=matches.length>=1?'':'none';
+    jumpBtn.dataset.param=matches[0]||'';
+    jumpBtn.textContent='↗ Vai a: '+( matches[0]||'');
+  } else {
+    jumpBtn.style.display='none';
+  }
+
+  // Filter visible ppills
+  document.querySelectorAll('.ppill').forEach(el=>{
+    const name=el.textContent.trim().toLowerCase().replace('⚠','').trim();
+    if(!q||name.includes(q)){
+      el.style.display='';
+      el.style.opacity='1';
+    } else {
+      el.style.display='none';
+    }
+  });
+
+  // Hide/show group labels if all children hidden
+  document.querySelectorAll('.group-label').forEach(label=>{
+    let next=label.nextElementSibling;
+    if(next&&next.classList.contains('param-pills')){
+      const visible=[...next.querySelectorAll('.ppill')].some(el=>el.style.display!=='none');
+      label.style.display=visible?'':'none';
+      next.style.display=visible?'':'none';
+    }
+  });
+}
+
+function jumpToSearchResult(){
+  const btn=document.getElementById('searchJumpBtn');
+  const p=btn.dataset.param;
+  if(p){
+    // clear search
+    document.getElementById('paramSearch').value='';
+    filterParams('');
+    jumpToChart(p);
+  }
 }
 
 // ── NAVIGATION ───────────────────────────────────────────────────────────────
