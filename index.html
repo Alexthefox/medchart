@@ -1400,39 +1400,48 @@ async function loadParamInfo(paramName,val){
     }
   }
 
-  // Fallback: Gemini
+  // Fallback: Gemini — try models in order
   if(!_geminiKey){
     showApiKeyForm(paramName,'gemini');
     return;
   }
-  try{
-    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${_geminiKey}`;
-    const resp=await fetch(url,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts:[{text:aiPrompt}]}],generationConfig:{temperature:0.3}})
-    });
-    if(!resp.ok){
-      const err=await resp.json().catch(()=>({}));
-      if(resp.status===400||resp.status===403){_geminiKey='';localStorage.removeItem('mc_gkey');}
-      throw new Error(err.error?.message||'HTTP '+resp.status);
+  const geminiModels=['gemini-1.5-flash','gemini-1.5-flash-latest','gemini-pro'];
+  let lastErr='';
+  for(const model of geminiModels){
+    try{
+      const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${_geminiKey}`;
+      const resp=await fetch(url,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts:[{text:aiPrompt}]}],generationConfig:{temperature:0.3}})
+      });
+      if(!resp.ok){
+        const err=await resp.json().catch(()=>({}));
+        if(resp.status===400||resp.status===403){_geminiKey='';localStorage.removeItem('mc_gkey');}
+        lastErr=err.error?.message||'HTTP '+resp.status;
+        console.warn(`Gemini ${model} failed:`,lastErr);
+        continue;
+      }
+      const data=await resp.json();
+      const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+      const info=JSON.parse(text.replace(/```json|```/g,'').trim());
+      _infoCache[paramName]=info;
+      renderInfoContent(info,val,'Gemini');
+      return;
+    }catch(e){
+      lastErr=e.message;
+      console.warn(`Gemini ${model} error:`,e.message);
     }
-    const data=await resp.json();
-    const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    const info=JSON.parse(text.replace(/```json|```/g,'').trim());
-    _infoCache[paramName]=info;
-    renderInfoContent(info,val,'Gemini');
-  }catch(e){
-    console.error('Gemini error:',e);
-    document.getElementById('infoLoading').style.display='none';
-    document.getElementById('infoContent').innerHTML=`
-      <p style="color:var(--red);margin-bottom:12px">Errore: ${e.message||'sconosciuto'}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-outline btn-sm" onclick="_anthropicKey='';localStorage.removeItem('mc_akey');showParamInfo('${paramName}')">Reimposta key Anthropic</button>
-        <button class="btn btn-outline btn-sm" onclick="_geminiKey='';localStorage.removeItem('mc_gkey');showParamInfo('${paramName}')">Reimposta key Gemini</button>
-      </div>`;
-    document.getElementById('infoContent').style.display='';
   }
+  // All models failed
+  document.getElementById('infoLoading').style.display='none';
+  document.getElementById('infoContent').innerHTML=`
+    <p style="color:var(--red);margin-bottom:12px">Tutti i modelli AI non disponibili.<br><small style="color:var(--text3)">${lastErr}</small></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="_anthropicKey='';localStorage.removeItem('mc_akey');showParamInfo('${paramName}')">Reimposta key Anthropic</button>
+      <button class="btn btn-outline btn-sm" onclick="_geminiKey='';localStorage.removeItem('mc_gkey');showParamInfo('${paramName}')">Reimposta key Gemini</button>
+    </div>`;
+  document.getElementById('infoContent').style.display='';
 }
 
 function showApiKeyForm(paramName,provider){
