@@ -67,7 +67,8 @@ h1,h2,h3{font-family:'Lora',serif}
 .card-name{font-size:14px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-lab{font-size:11px;color:var(--text3);margin-bottom:10px}
 .tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
-.tag{background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;color:var(--text2)}
+.tag{background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;color:var(--text2);transition:.15s}
+.tag[onclick]:hover{background:var(--s3);border-color:var(--green);color:var(--green)}
 .tag.alert{background:var(--red2);border-color:rgba(255,92,92,.3);color:var(--red)}
 .card-warn{font-size:11px;color:var(--red);margin-bottom:10px}
 .card-foot{display:flex;gap:8px}
@@ -454,6 +455,32 @@ async function handleFiles(files){
   prog.style.display='none';
 }
 
+// ── NAVIGATION ───────────────────────────────────────────────────────────────
+function jumpToChart(p){
+  // If param not selected, select it first
+  if(!selected.includes(p)){
+    selected.push(p);
+    save();
+    renderParamSel();
+    renderCharts();
+  }
+  // Wait for render then scroll
+  setTimeout(()=>{
+    const el=document.getElementById('cc_'+CSS.escape(p));
+    if(el){
+      el.scrollIntoView({behavior:'smooth',block:'center'});
+      // Flash highlight
+      el.style.transition='box-shadow 0.3s';
+      el.style.boxShadow='0 0 0 2px #3dffa0';
+      setTimeout(()=>{el.style.boxShadow='';},1500);
+    }
+  },100);
+}
+
+function scrollToTop(){
+  document.getElementById('recSec').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function render(){
   renderRecords();
@@ -483,7 +510,7 @@ function renderRecords(){
       <div class="card-name">${r.filename}</div>
       <div class="card-lab">${Object.keys(r.params).length} parametri rilevati</div>
       <div class="tags">
-        ${shown.map(p=>`<span class="tag ${status(r.params[p].value,r.params[p].min,r.params[p].max)!=='ok'?'alert':''}">${p}</span>`).join('')}
+        ${shown.map(p=>`<span class="tag ${status(r.params[p].value,r.params[p].min,r.params[p].max)!=='ok'?'alert':''}" onclick="jumpToChart('${p}')" title="Vai al grafico di ${p}" style="cursor:pointer">${p} ↗</span>`).join('')}
         ${extra>0?`<span class="tag">+${extra}</span>`:''}
       </div>
       ${alerts.length?`<div class="card-warn">⚠ ${alerts.length} parametr${alerts.length===1?'o':'i'} fuori range</div>`:''}
@@ -535,7 +562,10 @@ function renderCharts(){
         <h3 class="chart-title">${p}</h3>
         <div class="chart-unit" id="cu_${CSS.escape(p)}"></div>
       </div>
-      <div class="chart-stats" id="cs_${CSS.escape(p)}"></div>
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <div class="chart-stats" id="cs_${CSS.escape(p)}"></div>
+        <button class="btn btn-outline btn-sm" onclick="scrollToTop()" title="Torna alle analisi" style="margin-top:2px;flex-shrink:0">↑ Analisi</button>
+      </div>
     </div>
     <div class="chart-area"><canvas id="cv_${CSS.escape(p)}"></canvas></div>
   </div>`).join('');
