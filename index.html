@@ -401,7 +401,32 @@ function buildRecord(allItems,filename){
       text:l.items.sort((a,b)=>a.x-b.x).map(i=>i.t).join(' ').trim(),
       page:l.page,y:l.y
     }))
-    .filter(l=>l.text);
+    .filter(l=>l.text)
+    // Skip header/footer lines that appear on every page
+    .filter(l=>{
+      const t=l.text;
+      if(/medicina di laboratorio/i.test(t))return false;
+      if(/medicina trasfusionale/i.test(t))return false;
+      if(/^pag\.\s*:\s*\d/i.test(t))return false;
+      if(/nosologico:/i.test(t))return false;
+      if(/data nascita:/i.test(t))return false;
+      if(/id\. paz\./i.test(t))return false;
+      if(/documento informatico/i.test(t))return false;
+      if(/firma garantisce/i.test(t))return false;
+      if(/responsabilit/i.test(t))return false;
+      if(/sede di esecuzione/i.test(t))return false;
+      if(/patologia clinica/i.test(t))return false;
+      if(/direttore dr\./i.test(t))return false;
+      if(/direttore prof\./i.test(t))return false;
+      if(/pievesestina/i.test(t))return false;
+      if(/officina trasfusionale/i.test(t))return false;
+      // Skip [51] lines that contain words (not pure values)
+      if(/^\[51\]\s+[A-Za-z]/.test(t))return false;
+      return true;
+    });
+
+  // DEBUG: log all parsed lines (remove after fixing)
+  console.log('=== PARSER LINES ===', sortedLines.map(l=>`[p${l.page} y${l.y}] ${l.text}`));
 
   const textLines=sortedLines.map(l=>l.text);
   const date=extractDate(textLines);
@@ -548,42 +573,48 @@ function buildRecord(allItems,filename){
         'Emoglobina':[3,25],
         'Tacrolimus':[0.1,50],
         'GGT':[1,2000],
-        'ALT':[1,2000],
-        'AST':[1,2000],
-        'Fosfatasi Alc.':[1,2000],
-        'LDH':[1,5000],
-        'Bilirubina Tot.':[0.01,15],
-        'Bilirubina Dir.':[0.01,5],
+        'ALT':[1,500],
+        'AST':[1,500],
+        'Fosfatasi Alc.':[1,1000],
+        'LDH':[1,3000],
+        'Bilirubina Tot.':[0.01,10],
+        'Bilirubina Dir.':[0.01,3],
         'Glucosio':[10,500],
         'Sodio':[100,200],
         'Potassio':[1,8],
         'Calcio Totale':[1,15],
-        'Magnesio':[0.1,10],
-        'Fosfato':[0.1,20],
-        'Albumina':[20,60],
+        'Magnesio':[0.1,5],
+        'Fosfato':[0.1,10],
+        'Albumina':[20,55],
         'PTH':[1,1000],
         'Vitamina D':[1,300],
-        'HbA1c':[10,200],
+        'HbA1c':[10,60],
         'TSH':[0.001,100],
         'Piastrine':[10,1500],
-        'Globuli Bianchi':[0.1,100],
+        'Globuli Bianchi':[0.5,30],
         'Globuli Rossi':[0.5,10],
-        'Ematocrito':[5,70],
-        'MCV':[50,150],
-        'MCH':[10,50],
-        'MCHC':[20,45],
-        'Neutrofili':[0.01,20],
-        'Linfociti':[0.01,20],
-        'Monociti':[0.001,5],
+        'Ematocrito':[10,60],
+        'MCV':[50,130],
+        'MCH':[10,45],
+        'MCHC':[20,42],
+        'Neutrofili':[0.01,15],
+        'Linfociti':[0.01,10],
+        'Monociti':[0.001,4],
+        'Eosinofili':[0,3],
+        'Basofili':[0,1],
         'Ferritina':[1,5000],
-        'Ferro':[1,500],
+        'Ferro':[1,400],
+        'Transferrina':[0.5,5],
+        'Sat. Transferrina':[1,80],
         'Colesterolo Tot.':[50,500],
         'Colesterolo HDL':[5,200],
-        'Colesterolo LDL':[5,400],
+        'Colesterolo LDL':[5,300],
         'Trigliceridi':[10,2000],
-        'PCR':[0.1,500],
+        'PCR':[0.01,500],
         'Urea':[5,200],
-        'Acido Urico':[1,20],
+        'Acido Urico':[1,15],
+        'Amilasi':[1,1000],
+        'CPK':[1,5000],
       };
       if(sanity[canon]){
         const[lo,hi]=sanity[canon];
@@ -591,6 +622,7 @@ function buildRecord(allItems,filename){
       }
 
       if(!params[canon]){
+        console.log(`PARSED: ${canon} = ${value} (range: ${range}) from line ${i}: "${raw}"`);
         params[canon]={value,unit,...parseRange(range)};
       }
       break;
