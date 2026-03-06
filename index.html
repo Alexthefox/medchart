@@ -97,7 +97,7 @@ h1,h2,h3{font-family:'Lora',serif}
 .stat-v.high{color:var(--red)}
 .stat-v.low{color:var(--yellow)}
 .chart-area{position:relative;height:180px;margin-top:8px}
-canvas{width:100%!important;height:100%!important}
+canvas{display:block}
 
 /* EMPTY */
 .empty{text-align:center;padding:64px 20px;color:var(--text3)}
@@ -673,12 +673,12 @@ function connectDrive(){
     client_id:CLIENT_ID,scope:SCOPES,
     callback:async function(resp){
       if(resp.error){toast('Errore login: '+resp.error,'err');return;}
+      resp._expiresAt=Date.now()+(resp.expires_in||3600)*1000;
       driveToken=resp;gapi.client.setToken(driveToken);
       localStorage.setItem('mc_dtoken',JSON.stringify(driveToken));
       updateDriveUI(true);
       toast('Google Drive connesso!','ok');
       await ensureFolder();
-      // Only sync if we have local data; otherwise load from Drive
       if(records.length>0){
         await syncToDrive();
       } else {
@@ -687,6 +687,42 @@ function connectDrive(){
     }
   });
   client.requestAccessToken();
+}
+
+async function ensureValidToken(){
+  if(!driveToken)return false;
+  // If token expires within 5 minutes, refresh silently
+  if(driveToken._expiresAt&&Date.now()>driveToken._expiresAt-300000){
+    return new Promise(resolve=>{
+      var client=google.accounts.oauth2.initTokenClient({
+        client_id:CLIENT_ID,scope:SCOPES,
+        callback:function(resp){
+          if(resp.error){
+            toast('Token Drive scaduto — riconnetti Drive','err');
+            driveToken=null;localStorage.removeItem('mc_dtoken');
+            updateDriveUI(false);
+            resolve(false);
+          } else {
+            resp._expiresAt=Date.now()+(resp.expires_in||3600)*1000;
+            driveToken=resp;gapi.client.setToken(driveToken);
+            localStorage.setItem('mc_dtoken',JSON.stringify(driveToken));
+            resolve(true);
+          }
+        }
+      });
+      client.requestAccessToken({prompt:''});// silent refresh, no popup
+    });
+  }
+  return true;
+}
+
+function driveErrMsg(e){
+  if(!e)return'errore sconosciuto';
+  if(typeof e==='string')return e;
+  if(e.message)return e.message;
+  if(e.result&&e.result.error&&e.result.error.message)return e.result.error.message;
+  if(e.status)return'HTTP '+e.status;
+  try{return JSON.stringify(e);}catch(_){return'errore sconosciuto';}
 }
 
 function disconnectDrive(){
@@ -745,6 +781,9 @@ async function ensureFolder(){
 
 async function syncToDrive(){
   if(!driveToken||!gapiReady)return;
+  if(!await ensureValidToken())return;
+  // Never overwrite Drive with empty data
+  if(!records.length){toast('Nessun dato da salvare','err');return;}
   try{
     await ensureFolder();
     var content=JSON.stringify({records:records,selected:selected},null,2);
@@ -789,7 +828,7 @@ async function syncToDrive(){
       driveDbId=data.id;localStorage.setItem('mc_ddb',driveDbId);
     }
     toast('Sincronizzato con Drive ✓','ok');
-  }catch(e){console.error('syncToDrive error:',e);toast('Errore sync Drive: '+e.message,'err');}
+  }catch(e){console.error('syncToDrive error:',e);toast('Errore sync Drive: '+driveErrMsg(e),'err');}
 }
 
 async function uploadPdfToDrive(file){
@@ -813,6 +852,7 @@ async function uploadPdfToDrive(file){
 
 async function loadFromDrive(){
   if(!driveToken||!gapiReady){toast('Connetti prima Google Drive','err');return;}
+  if(!await ensureValidToken())return;
   try{
     await ensureFolder();
     // Always search by name — don't rely on cached driveDbId
@@ -839,7 +879,7 @@ async function loadFromDrive(){
     records=data.records||[];selected=data.selected||[];
     save();render();
     toast('Caricati '+records.length+' analisi da Drive ✓','ok');
-  }catch(e){console.error('loadFromDrive error:',e);toast('Errore caricamento Drive: '+e.message,'err');}
+  }catch(e){console.error('loadFromDrive error:',e);toast('Errore caricamento Drive: '+driveErrMsg(e),'err');}
 }
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
@@ -1007,6 +1047,11 @@ function renderCharts(){
   </div>`).join('');
 
   selected.forEach(p=>drawChart(p));
+
+  // Redraw on resize
+  if(window._chartResizeObserver)window._chartResizeObserver.disconnect();
+  window._chartResizeObserver=new ResizeObserver(()=>selected.forEach(p=>drawChart(p)));
+  window._chartResizeObserver.observe(document.getElementById('chartsGrid'));
 }
 
 // ── CANVAS CHART ──────────────────────────────────────────────────────────────
