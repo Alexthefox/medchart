@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedChart — Analisi del Sangue</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e28;
+    --border: #252936;
+    --accent: #4fffb0;
+    --accent2: #7b6cff;
+    --accent3: #ff6c6c;
+    --text: #e8eaf0;
+    --text2: #8890a6;
+    --text3: #565e75;
+    --warning: #ffb84f;
+    --radius: 16px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(13,15,20,0.9);
+    backdrop-filter: blur(20px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0d0f14;
+  }
+
+  .btn-primary:hover { background: #3de89a; transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover { background: var(--border); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  .btn-danger {
+    background: rgba(255,108,108,0.15);
+    color: var(--accent3);
+    border: 1px solid rgba(255,108,108,0.3);
+  }
+
+  .btn-danger:hover { background: rgba(255,108,108,0.25); }
+
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* MAIN LAYOUT */
+  .main { padding: 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 32px;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+    position: relative;
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(79,255,176,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79,255,176,0.03);
+  }
+
+  .upload-icon { font-size: 48px; margin-bottom: 16px; }
+  .upload-title { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 8px; }
+  .upload-sub { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+
+  /* RECORDS LIST */
+  .records-section { margin-top: 32px; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .records-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .record-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .record-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .record-card:hover { border-color: rgba(79,255,176,0.3); transform: translateY(-2px); }
+  .record-card:hover::before { opacity: 1; }
+
+  .record-date {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .record-filename {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .record-lab {
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 12px;
+  }
+
+  .record-params {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .param-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .param-chip.out { border-color: rgba(255,108,108,0.4); color: var(--accent3); background: rgba(255,108,108,0.08); }
+
+  .record-actions { display: flex; gap: 8px; }
+
+  /* CHART SECTION */
+  .charts-section { margin-top: 40px; }
+
+  .param-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .param-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .param-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .param-btn.active { background: rgba(79,255,176,0.1); border-color: var(--accent); color: var(--accent); }
+  .param-btn.has-alert { border-color: rgba(255,108,108,0.4); }
+  .param-btn.has-alert.active { background: rgba(255,108,108,0.1); border-color: var(--accent3); color: var(--accent3); }
+
+  .charts-grid {
+    display: grid;
+    gap: 24px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+    opacity: 0.5;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 16px;
+  }
+
+  .chart-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .chart-unit {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .chart-stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .stat-item { text-align: right; }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 18px; font-weight: 600; font-family: 'DM Serif Display', serif; }
+  .stat-value.ok { color: var(--accent); }
+  .stat-value.high { color: var(--accent3); }
+  .stat-value.low { color: var(--warning); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 80px 32px;
+    color: var(--text3);
+  }
+
+  .empty-icon { font-size: 64px; margin-bottom: 16px; }
+  .empty-title { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--text2); margin-bottom: 8px; }
+  .empty-sub { font-size: 14px; }
+
+  /* TOAST */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease;
+    max-width: 340px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .toast.success { border-color: rgba(79,255,176,0.4); }
+  .toast.error { border-color: rgba(255,108,108,0.4); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* PROGRESS */
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 16px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  /* DRIVE MODAL */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+  }
+
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 8px; }
+  .modal-sub { color: var(--text2); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+
+  .input-group { margin-bottom: 16px; }
+  .input-label { font-size: 12px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
+
+  .input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input:focus { border-color: var(--accent2); }
+
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  /* STATUS INDICATOR */
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .status-dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .status-dot.high { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+  .status-dot.low { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+
+  /* GROUPS */
+  .group-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    margin: 16px 0 8px;
+    padding-left: 4px;
+  }
+
+  /* GDRIVE STATUS */
+  .gdrive-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .gdrive-status.connected {
+    border-color: rgba(79,255,176,0.3);
+    color: var(--accent);
+  }
+
+  /* RECHARTS custom */
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-cartesian-grid-vertical line {
+    stroke: var(--border) !important;
+  }
+
+  .recharts-text { fill: var(--text3) !important; font-family: 'DM Sans', sans-serif !important; font-size: 12px !important; }
+
+  @media (max-width: 768px) {
+    .header { padding: 16px 20px; }
+    .main { padding: 20px; }
+    .header-right .btn span { display: none; }
+    .records-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Area, AreaChart } = Recharts;
+
+// ---- PDF PARSER ----
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const PARAM_ALIASES = {
+  'globuli bianchi': 'Globuli Bianchi',
+  'globuli rossi': 'Globuli Rossi',
+  'emoglobina': 'Emoglobina',
+  'ematocrito': 'Ematocrito',
+  'mcv': 'MCV',
+  'mch': 'MCH',
+  'mchc': 'MCHC',
+  'rdw cv': 'RDW CV',
+  'rdw sd': 'RDW SD',
+  'piastrine': 'Piastrine',
+  'neutrofili': 'Neutrofili',
+  'linfociti': 'Linfociti',
+  'monociti': 'Monociti',
+  'eosinofili': 'Eosinofili',
+  'basofili': 'Basofili',
+  'glucosio': 'Glucosio',
+  's/p-glucosio': 'Glucosio',
+  'urea': 'Urea',
+  's/p-urea': 'Urea',
+  'creatinina': 'Creatinina',
+  's/p-creatinina': 'Creatinina',
+  'egfr': 'eGFR',
+  'acido urico': 'Acido Urico',
+  's/p-acido urico': 'Acido Urico',
+  'sodio': 'Sodio',
+  's/p-sodio': 'Sodio',
+  'potassio': 'Potassio',
+  's/p-potassio': 'Potassio',
+  'cloro': 'Cloro',
+  's/p-cloro': 'Cloro',
+  'calcio totale': 'Calcio Totale',
+  's/p-calcio totale': 'Calcio Totale',
+  'magnesio': 'Magnesio',
+  's/p-magnesio': 'Magnesio',
+  'fosfato inorganico': 'Fosfato Inorganico',
+  's/p-fosfato inorganico': 'Fosfato Inorganico',
+  'alanina aminotransferasi': 'ALT',
+  's/p-alanina aminotransferasi (alt)': 'ALT',
+  'alt': 'ALT',
+  'aspartato aminotransferasi': 'AST',
+  's/p-aspartato aminotransferasi (ast)': 'AST',
+  'ast': 'AST',
+  'gamma gt': 'GGT',
+  's/p-gamma gt (ggt)': 'GGT',
+  'ggt': 'GGT',
+  'proteina c reattiva': 'PCR',
+  's/p-proteina c reattiva': 'PCR',
+  'amilasi pancreatica': 'Amilasi',
+  's-amilasi pancreatica': 'Amilasi',
+  'ferro': 'Ferro',
+  's-ferro': 'Ferro',
+  'transferrina': 'Transferrina',
+  's-transferrina': 'Transferrina',
+  'percentuale di saturazione della transferrina': 'Saturazione Transferrina',
+  'ferritina': 'Ferritina',
+  's-ferritina': 'Ferritina',
+  'paratormone': 'PTH',
+  'p-paratormone (pth)': 'PTH',
+  'emoglobina glicata': 'HbA1c',
+  'sg-emoglobina glicata (hba1c)': 'HbA1c',
+  'hba1c': 'HbA1c',
+  'tacrolimus': 'Tacrolimus',
+  'sg-tacrolimus': 'Tacrolimus',
+  'colesterolo totale': 'Colesterolo Totale',
+  's-colesterolo totale': 'Colesterolo Totale',
+  'colesterolo hdl': 'Colesterolo HDL',
+  's-colesterolo hdl': 'Colesterolo HDL',
+  'colesterolo ldl': 'Colesterolo LDL',
+  's-colesterolo ldl': 'Colesterolo LDL',
+  'trigliceridi': 'Trigliceridi',
+  's-trigliceridi': 'Trigliceridi',
+  'vitamina d': 'Vitamina D',
+  's-vitamina d (25oh)': 'Vitamina D',
+  'bilirubina totale': 'Bilirubina Totale',
+  's/p-bilirubina totale': 'Bilirubina Totale',
+  'bilirubina diretta': 'Bilirubina Diretta',
+  's/p-bilirubina diretta': 'Bilirubina Diretta',
+  'fosfatasi alcalina': 'Fosfatasi Alcalina',
+  's/p-fosfatasi alcalina': 'Fosfatasi Alcalina',
+  'latticodeidrogenasi': 'LDH',
+  's/p-latticodeidrogenasi (ldh)': 'LDH',
+  'ldh': 'LDH',
+  'creatinfosfochinasi': 'CPK',
+  's/p-creatinfosfochinasi (cpk)': 'CPK',
+  'cpk': 'CPK',
+  'albumina': 'Albumina',
+  's/p-albumina': 'Albumina',
+  'bk virus': 'BK Virus',
+  'citomegalovirus': 'CMV',
+  'ebv-dna': 'EBV',
+};
+
+const PARAM_GROUPS = {
+  'Emocromo': ['Emoglobina', 'Globuli Rossi', 'Globuli Bianchi', 'Piastrine', 'Ematocrito', 'MCV', 'MCH', 'MCHC', 'RDW CV', 'RDW SD'],
+  'Formula': ['Neutrofili', 'Linfociti', 'Monociti', 'Eosinofili', 'Basofili'],
+  'Rene & Metabolismo': ['Creatinina', 'eGFR', 'Urea', 'Acido Urico', 'Glucosio'],
+  'Elettroliti': ['Sodio', 'Potassio', 'Cloro', 'Calcio Totale', 'Magnesio', 'Fosfato Inorganico'],
+  'Fegato': ['ALT', 'AST', 'GGT', 'Bilirubina Totale', 'Bilirubina Diretta', 'Fosfatasi Alcalina', 'LDH'],
+  'Lipidi': ['Colesterolo Totale', 'Colesterolo HDL', 'Colesterolo LDL', 'Trigliceridi'],
+  'Infiammazione & Altro': ['PCR', 'Albumina', 'Tacrolimus', 'HbA1c', 'Ferritina', 'Ferro', 'Transferrina', 'Saturazione Transferrina', 'PTH', 'Vitamina D', 'Amilasi', 'CPK'],
+  'Virologia': ['BK Virus', 'CMV', 'EBV'],
+};
+
+async function parsePDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let allText = '';
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const items = content.items;
+
+    // Reconstruct lines by grouping items with similar Y positions
+    const lines = {};
+    items.forEach(item => {
+      const y = Math.round(item.transform[5]);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push({ x: item.transform[4], text: item.str });
+    });
+
+    const sortedYs = Object.keys(lines).sort((a, b) => b - a);
+    sortedYs.forEach(y => {
+      const lineItems = lines[y].sort((a, b) => a.x - b.x);
+      allText += lineItems.map(i => i.text).join(' ') + '\n';
+    });
+  }
+
+  return extractData(allText, file.name);
+}
+
+function extractDate(text) {
+  // Try "prodotto il: DD/MM/YYYY"
+  let m = text.match(/prodotto il[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+  if (m) return m[1];
+  // Try "del DD/MM/YYYY"
+  m = text.match(/del\s+(\d{2}\/\d{2}\/\d{4})/i);
+  if (m) return m[1];
+  // Generic date pattern
+  m = text.match(/(\d{2}\/\d{2}\/\d{4})/);
+  if (m) return m[1];
+  return null;
+}
+
+function extractLab(text) {
+  const m = text.match(/(?:Medicina di Laboratorio[^\n]*|(?:AUSL|ASL|Ospedale|Laboratorio)[^\n]{0,60})/i);
+  return m ? m[0].trim().substring(0, 60) : 'Laboratorio';
+}
+
+function parseRange(rangeStr) {
+  if (!rangeStr) return { min: null, max: null };
+  rangeStr = rangeStr.trim();
+
+  // "< 50" or "< 5.0"
+  let m = rangeStr.match(/^<\s*([\d.]+)/);
+  if (m) return { min: null, max: parseFloat(m[1]) };
+
+  // "> 40"
+  m = rangeStr.match(/^>\s*([\d.]+)/);
+  if (m) return { min: parseFloat(m[1]), max: null };
+
+  // "4.00 - 10.00" or "4,00 - 10,00"
+  m = rangeStr.match(/([\d.,]+)\s*[-–]\s*([\d.,]+)/);
+  if (m) return { min: parseFloat(m[1].replace(',','.')), max: parseFloat(m[2].replace(',','.')) };
+
+  return { min: null, max: null };
+}
+
+function extractData(text, filename) {
+  const date = extractDate(text);
+  const lab = extractLab(text);
+  const params = {};
+
+  const lines = text.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Try to match lines like: "Emoglobina 13.5 g/dl 13.5 - 17.0"
+    // or multi-token exam names
+    const lineL = line.toLowerCase();
+
+    for (const [alias, canonical] of Object.entries(PARAM_ALIASES)) {
+      if (lineL.includes(alias)) {
+        // Look for numeric value in this line or next
+        const valueMatch = line.match(/\b(\d+[.,]?\d*)\s*\*/?) ||
+                           line.match(/\b(\d+[.,]?\d*)\b/);
+        if (!valueMatch) continue;
+
+        const numStr = valueMatch[1].replace(',', '.');
+        const value = parseFloat(numStr);
+        if (isNaN(value) || value === 0) continue;
+        if (value > 99999) continue; // skip doc numbers
+
+        // Extract unit
+        const unitMatch = line.match(/\b(\d+[.,]?\d*)\s*\*?\s*([\w\/\^%]+)/);
+        const unit = unitMatch ? unitMatch[2] : '';
+
+        // Extract range - look in this line and a bit forward
+        let rangeStr = '';
+        const rangeInLine = line.match(/(\d+[.,]?\d*)\s*[-–]\s*(\d+[.,]?\d*)(?!\d)/);
+        if (rangeInLine) {
+          rangeStr = `${rangeInLine[1]} - ${rangeInLine[2]}`;
+        } else {
+          const ltMatch = line.match(/<\s*[\d.,]+/);
+          const gtMatch = line.match(/>\s*[\d.,]+/);
+          if (ltMatch) rangeStr = ltMatch[0];
+          else if (gtMatch) rangeStr = gtMatch[0];
+        }
+
+        if (!params[canonical] || Math.abs(params[canonical].value) < Math.abs(value)) {
+          const { min, max } = parseRange(rangeStr);
+          params[canonical] = { value, unit: unit || '', min, max };
+        }
+        break;
+      }
+    }
+  }
+
+  return {
+    id: Date.now() + Math.random(),
+    filename,
+    date,
+    lab,
+    params,
+    addedAt: new Date().toISOString(),
+  };
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '?';
+  const [d, m, y] = dateStr.split('/');
+  const months = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
+function toSortableDate(dateStr) {
+  if (!dateStr) return '';
+  const [d, m, y] = dateStr.split('/');
+  return `${y}-${m}-${d}`;
+}
+
+function getStatus(value, min, max) {
+  if (min !== null && value < min) return 'low';
+  if (max !== null && value > max) return 'high';
+  return 'ok';
+}
+
+// ---- TOAST COMPONENT ----
+function Toasts({ toasts }) {
+  return (
+    <div className="toast-container">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.type}`}>
+          <span>{t.type === 'success' ? '✓' : '✕'}</span>
+          <span>{t.message}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- CUSTOM TOOLTIP ----
+function CustomTooltip({ active, payload, label, paramName }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0];
+  const status = getStatus(d.value, d.payload.min, d.payload.max);
+  const statusColor = status === 'ok' ? '#4fffb0' : status === 'high' ? '#ff6c6c' : '#ffb84f';
+  return (
+    <div style={{
+      background: '#1a1e28',
+      border: '1px solid #252936',
+      borderRadius: 10,
+      padding: '12px 16px',
+      fontSize: 13,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    }}>
+      <div style={{ color: '#8890a6', marginBottom: 6, fontSize: 11 }}>{label}</div>
+      <div style={{ color: statusColor, fontWeight: 700, fontSize: 18, fontFamily: 'DM Serif Display, serif' }}>
+        {d.value} <span style={{ fontSize: 12, fontFamily: 'DM Sans, sans-serif', fontWeight: 400 }}>{d.payload.unit}</span>
+      </div>
+      {(d.payload.min !== null || d.payload.max !== null) && (
+        <div style={{ color: '#565e75', marginTop: 4, fontSize: 11 }}>
+          Riferimento: {d.payload.min !== null ? d.payload.min : ''}
+          {d.payload.min !== null && d.payload.max !== null ? ' – ' : ''}
+          {d.payload.max !== null ? (d.payload.min !== null ? d.payload.max : '< ' + d.payload.max) : ''}
+          {d.payload.unit}
+        </div>
+      )}
+      <div style={{ marginTop: 4, fontSize: 11, color: statusColor }}>
+        {status === 'ok' ? '● Nella norma' : status === 'high' ? '▲ Sopra il range' : '▼ Sotto il range'}
+      </div>
+    </div>
+  );
+}
+
+// ---- CHART CARD ----
+function ChartCard({ paramName, records }) {
+  const data = records
+    .filter(r => r.params[paramName] !== undefined)
+    .map(r => ({
+      date: formatDate(r.date),
+      sortDate: toSortableDate(r.date),
+      value: r.params[paramName].value,
+      unit: r.params[paramName].unit,
+      min: r.params[paramName].min,
+      max: r.params[paramName].max,
+    }))
+    .sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+
+  if (data.length === 0) return null;
+
+  const latest = data[data.length - 1];
+  const status = getStatus(latest.value, latest.min, latest.max);
+  const statusColor = status === 'ok' ? '#4fffb0' : status === 'high' ? '#ff6c6c' : '#ffb84f';
+
+  const min = data[0].min;
+  const max = data[0].max;
+
+  // Y axis domain with padding
+  const values = data.map(d => d.value);
+  const allVals = [...values, min, max].filter(v => v !== null && v !== undefined);
+  const yMin = Math.min(...allVals) * 0.85;
+  const yMax = Math.max(...allVals) * 1.15;
+
+  const strokeColor = status === 'ok' ? '#4fffb0' : status === 'high' ? '#ff6c6c' : '#ffb84f';
+  const gradId = `grad-${paramName.replace(/\s/g,'_')}`;
+
+  return (
+    <div className="chart-card">
+      <div className="chart-header">
+        <div>
+          <div className="chart-title">{paramName}</div>
+          <div className="chart-unit">{latest.unit}</div>
+        </div>
+        <div className="chart-stats">
+          <div className="stat-item">
+            <div className="stat-label">Ultimo</div>
+            <div className={`stat-value ${status}`} style={{ color: statusColor }}>{latest.value}</div>
+          </div>
+          {data.length > 1 && (
+            <div className="stat-item">
+              <div className="stat-label">Trend</div>
+              <div className="stat-value" style={{ color: '#8890a6' }}>
+                {data[data.length-1].value > data[data.length-2].value ? '↑' :
+                 data[data.length-1].value < data[data.length-2].value ? '↓' : '→'}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={strokeColor} stopOpacity={0.15}/>
+              <stop offset="95%" stopColor={strokeColor} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#252936" />
+          <XAxis dataKey="date" tick={{ fill: '#565e75', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis domain={[yMin, yMax]} tick={{ fill: '#565e75', fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+          {min !== null && (
+            <ReferenceLine y={min} stroke="#ffb84f" strokeDasharray="4 4" strokeOpacity={0.5}
+              label={{ value: `min ${min}`, fill: '#ffb84f', fontSize: 10, position: 'insideTopLeft' }} />
+          )}
+          {max !== null && (
+            <ReferenceLine y={max} stroke="#ff6c6c" strokeDasharray="4 4" strokeOpacity={0.5}
+              label={{ value: `max ${max}`, fill: '#ff6c6c', fontSize: 10, position: 'insideTopLeft' }} />
+          )}
+          <Tooltip content={<CustomTooltip paramName={paramName} />} />
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke={strokeColor}
+            strokeWidth={2.5}
+            fill={`url(#${gradId})`}
+            dot={{ fill: strokeColor, r: 5, strokeWidth: 0 }}
+            activeDot={{ r: 7, fill: strokeColor, strokeWidth: 0 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ---- DRIVE CONFIG MODAL ----
+function DriveModal({ onClose, onSave, config }) {
+  const [apiKey, setApiKey] = useState(config?.apiKey || '');
+  const [folderId, setFolderId] = useState(config?.folderId || '');
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">☁️ Google Drive</div>
+        <div className="modal-sub">
+          Configura il salvataggio automatico su Google Drive. I tuoi PDF e il database verranno archiviati nella cartella che specifichi.
+          <br/><br/>
+          <strong>Come ottenere l'API Key:</strong> vai su <a href="https://console.cloud.google.com" target="_blank" style={{color:'var(--accent)'}}>console.cloud.google.com</a>, crea un progetto, abilita la Drive API, e crea una chiave API.
+        </div>
+        <div className="input-group">
+          <label className="input-label">API Key Google Drive</label>
+          <input className="input" type="password" placeholder="AIza..." value={apiKey} onChange={e => setApiKey(e.target.value)} />
+        </div>
+        <div className="input-group">
+          <label className="input-label">ID Cartella Drive (opzionale)</label>
+          <input className="input" type="text" placeholder="Lascia vuoto per cartella root" value={folderId} onChange={e => setFolderId(e.target.value)} />
+        </div>
+        <div style={{ background: 'rgba(255,184,79,0.08)', border: '1px solid rgba(255,184,79,0.3)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#ffb84f', marginTop: 8 }}>
+          ⚠️ Per una integrazione Drive completa, questa app va ospitata su un server con OAuth2. Per ora i dati vengono salvati localmente nel browser.
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Annulla</button>
+          <button className="btn btn-primary" onClick={() => { onSave({ apiKey, folderId }); onClose(); }}>Salva</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- MAIN APP ----
+function App() {
+  const [records, setRecords] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('medchart_records') || '[]'); } catch { return []; }
+  });
+  const [selectedParams, setSelectedParams] = useState([]);
+  const [toasts, setToasts] = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
+  const [showDriveModal, setShowDriveModal] = useState(false);
+  const [driveConfig, setDriveConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('medchart_drive') || 'null'); } catch { return null; }
+  });
+  const fileInputRef = useRef();
+
+  useEffect(() => {
+    localStorage.setItem('medchart_records', JSON.stringify(records));
+  }, [records]);
+
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(t => [...t, { id, message, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4000);
+  };
+
+  const handleFiles = async (files) => {
+    const pdfs = Array.from(files).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
+    if (!pdfs.length) { addToast('Seleziona file PDF validi', 'error'); return; }
+    setProcessing(true);
+    setProgress(0);
+
+    const newRecords = [];
+    for (let i = 0; i < pdfs.length; i++) {
+      try {
+        const rec = await parsePDF(pdfs[i]);
+        newRecords.push(rec);
+        setProgress(((i + 1) / pdfs.length) * 100);
+      } catch (e) {
+        addToast(`Errore nel file ${pdfs[i].name}`, 'error');
+      }
+    }
+
+    if (newRecords.length) {
+      setRecords(prev => {
+        const updated = [...prev, ...newRecords];
+        return updated.sort((a, b) => toSortableDate(a.date).localeCompare(toSortableDate(b.date)));
+      });
+      addToast(`${newRecords.length} analisi importata${newRecords.length > 1 ? 'e' : ''} con successo ✓`);
+
+      // Auto-select params present in new records
+      const newParams = new Set();
+      newRecords.forEach(r => Object.keys(r.params).forEach(p => newParams.add(p)));
+      setSelectedParams(prev => {
+        const combined = new Set([...prev, ...newParams]);
+        return [...combined];
+      });
+    }
+
+    setProcessing(false);
+    setProgress(0);
+  };
+
+  const deleteRecord = (id) => {
+    setRecords(prev => prev.filter(r => r.id !== id));
+    addToast('Analisi rimossa');
+  };
+
+  // All available params across all records
+  const availableParams = useMemo(() => {
+    const all = new Set();
+    records.forEach(r => Object.keys(r.params).forEach(p => all.add(p)));
+    return [...all];
+  }, [records]);
+
+  // Group available params
+  const groupedParams = useMemo(() => {
+    const result = {};
+    const assigned = new Set();
+    for (const [group, params] of Object.entries(PARAM_GROUPS)) {
+      const found = params.filter(p => availableParams.includes(p));
+      if (found.length) { result[group] = found; found.forEach(p => assigned.add(p)); }
+    }
+    const others = availableParams.filter(p => !assigned.has(p));
+    if (others.length) result['Altri'] = others;
+    return result;
+  }, [availableParams]);
+
+  const toggleParam = (p) => {
+    setSelectedParams(prev =>
+      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+    );
+  };
+
+  const hasAlert = (paramName) => {
+    return records.some(r => {
+      const p = r.params[paramName];
+      if (!p) return false;
+      return getStatus(p.value, p.min, p.max) !== 'ok';
+    });
+  };
+
+  const selectAll = () => setSelectedParams([...availableParams]);
+  const clearAll = () => setSelectedParams([]);
+
+  return (
+    <div>
+      {/* HEADER */}
+      <header className="header">
+        <div className="logo">
+          <div className="logo-icon">🩺</div>
+          <span className="logo-text">MedChart</span>
+        </div>
+        <div className="header-right">
+          <div className={`gdrive-status ${driveConfig ? 'connected' : ''}`}>
+            {driveConfig ? '☁️ Drive connesso' : '☁️ Drive non configurato'}
+          </div>
+          <button className="btn btn-ghost" onClick={() => setShowDriveModal(true)}>
+            ⚙️ <span>Configura Drive</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="main">
+        {/* UPLOAD */}
+        <div
+          className={`upload-zone ${dragOver ? 'drag-over' : ''}`}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => handleFiles(e.target.files)}
+          />
+          <div className="upload-icon">📄</div>
+          <div className="upload-title">Carica le tue analisi</div>
+          <div className="upload-sub">Trascina qui i PDF dal Fascicolo Sanitario Elettronico, o clicca per selezionarli</div>
+          <button className="btn btn-primary" onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}
+            disabled={processing}>
+            {processing ? '⏳ Elaborazione...' : '+ Aggiungi PDF'}
+          </button>
+          {processing && (
+            <div className="progress-bar" style={{ maxWidth: 300, margin: '16px auto 0' }}>
+              <div className="progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+        </div>
+
+        {/* RECORDS */}
+        {records.length > 0 && (
+          <div className="records-section">
+            <div className="section-header">
+              <div className="section-title">
+                📋 Analisi archiviate
+                <span className="badge">{records.length}</span>
+              </div>
+              <button className="btn btn-danger btn-ghost" onClick={() => {
+                if (confirm('Eliminare tutte le analisi?')) { setRecords([]); setSelectedParams([]); }
+              }}>
+                🗑 Cancella tutto
+              </button>
+            </div>
+            <div className="records-grid">
+              {records.map(r => {
+                const alerts = Object.entries(r.params).filter(([, v]) => getStatus(v.value, v.min, v.max) !== 'ok');
+                return (
+                  <div key={r.id} className="record-card">
+                    <div className="record-date">{formatDate(r.date)}</div>
+                    <div className="record-filename">{r.filename}</div>
+                    <div className="record-lab">{r.lab}</div>
+                    <div className="record-params">
+                      {Object.keys(r.params).slice(0, 8).map(p => (
+                        <span key={p} className={`param-chip ${getStatus(r.params[p].value, r.params[p].min, r.params[p].max) !== 'ok' ? 'out' : ''}`}>
+                          {p}
+                        </span>
+                      ))}
+                      {Object.keys(r.params).length > 8 && (
+                        <span className="param-chip">+{Object.keys(r.params).length - 8}</span>
+                      )}
+                    </div>
+                    {alerts.length > 0 && (
+                      <div style={{ fontSize: 12, color: '#ff6c6c', marginBottom: 10 }}>
+                        ⚠ {alerts.length} parametr{alerts.length === 1 ? 'o' : 'i'} fuori range
+                      </div>
+                    )}
+                    <div className="record-actions">
+                      <button className="btn btn-danger" style={{ flex: 1, fontSize: 12 }} onClick={() => deleteRecord(r.id)}>
+                        🗑 Rimuovi
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* CHARTS SECTION */}
+        {records.length > 0 && (
+          <>
+            <div className="divider" />
+            <div className="charts-section">
+              <div className="section-header">
+                <div className="section-title">📈 Grafici</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-ghost" onClick={selectAll} style={{ fontSize: 12 }}>Seleziona tutti</button>
+                  <button className="btn btn-ghost" onClick={clearAll} style={{ fontSize: 12 }}>Deseleziona</button>
+                </div>
+              </div>
+
+              {/* PARAM SELECTOR */}
+              <div>
+                {Object.entries(groupedParams).map(([group, params]) => (
+                  <div key={group}>
+                    <div className="group-title">{group}</div>
+                    <div className="param-selector">
+                      {params.map(p => (
+                        <button
+                          key={p}
+                          className={`param-btn ${selectedParams.includes(p) ? 'active' : ''} ${hasAlert(p) ? 'has-alert' : ''}`}
+                          onClick={() => toggleParam(p)}
+                        >
+                          {hasAlert(p) && <span style={{ fontSize: 10 }}>⚠</span>}
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* CHARTS */}
+              {selectedParams.length > 0 ? (
+                <div className="charts-grid" style={{ marginTop: 24 }}>
+                  {selectedParams.map(p => (
+                    <ChartCard key={p} paramName={p} records={records} />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">📊</div>
+                  <div className="empty-title">Seleziona i parametri da graficare</div>
+                  <div className="empty-sub">Clicca sui bottoni qui sopra per visualizzare i grafici</div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* EMPTY STATE */}
+        {records.length === 0 && (
+          <div className="empty-state" style={{ marginTop: 48 }}>
+            <div className="empty-icon">🔬</div>
+            <div className="empty-title">Nessuna analisi ancora</div>
+            <div className="empty-sub">Carica i tuoi PDF dal Fascicolo Sanitario Elettronico per iniziare</div>
+          </div>
+        )}
+      </main>
+
+      {/* MODALS */}
+      {showDriveModal && (
+        <DriveModal
+          config={driveConfig}
+          onClose={() => setShowDriveModal(false)}
+          onSave={(cfg) => {
+            setDriveConfig(cfg);
+            localStorage.setItem('medchart_drive', JSON.stringify(cfg));
+            addToast('Configurazione Drive salvata');
+          }}
+        />
+      )}
+
+      <Toasts toasts={toasts} />
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
