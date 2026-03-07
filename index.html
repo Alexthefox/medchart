@@ -415,8 +415,9 @@ function buildRecord(allItems,filename){
       if(/^(niente altro|commento|osservazioni|materiale:|diuresi:|esame morfo)/i.test(t))return false;
       if(/^(appropriata|nota |cut-off|intervallo di mis|il dosaggio|il valore di)/i.test(t))return false;
       if(/^(per ogni|in caso|la firma|breakpoint|negativa la ricerca)/i.test(t))return false;
-      // Skip [code] lines that start with a lab code followed by letters (not values)
-      if(/^\[\d+\]\s+[A-Za-z]/.test(t))return false;
+      if(/emivita dei globuli|glicazione dell.emoglobina/i.test(t))return false;
+      // Skip [code] lines that are clearly headers/admin (not param names)
+      if(/^\[\d+\]\s+(Pievesestina|Officina|Direttore|Pag\.|Sede)/i.test(t))return false;
       // Skip "campione non" lines (sample error/unavailable)
       if(/campione non/i.test(t))return false;
       // Skip pure range/note lines from Parma format (e.g. "100-125 mg/dL : alterata glicemia")
@@ -427,6 +428,12 @@ function buildRecord(allItems,filename){
     });
 
   const textLines=sortedLines.map(l=>l.text);
+  // DEBUG: dump all lines for first PDF
+  if(!window._dumpedFirst){
+    window._dumpedFirst=true;
+    console.log('=== ALL LINES (first PDF) ===');
+    sortedLines.forEach((l,i)=>console.log(`[${i}] p${l.page} y${l.y}: ${l.text}`));
+  }
   const date=extractDate(textLines);
   const params={};
 
@@ -439,9 +446,11 @@ function buildRecord(allItems,filename){
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function extractValue(s){
-    // Strip lab codes like [11], [51], [21] before extracting
     s=s.replace(/\[\d+\]/g,'').trim();
-    const nums=[...s.matchAll(/(?<![0-9])(\d{1,3}[.,]\d{1,4}|\d{1,3})(?![0-9])/g)];
+    // Remove unit tokens like 10^9/L, 10^12/L, x10^3/uL etc. before extracting value
+    s=s.replace(/\d+\^\d+[\/a-zA-Z]*/g,' ').replace(/x10[^\s]*/gi,' ');
+    // Now extract first standalone number
+    const nums=[...s.matchAll(/(?:^|[\s,;:])(\d{1,3}[.,]\d{1,4}|\d{1,3})(?=$|[\s,;:*%])/g)];
     for(const m of nums){
       const v=parseFloat(m[1].replace(',','.'));
       if(!isNaN(v)&&v>=0&&v<5000)return v;
