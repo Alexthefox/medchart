@@ -386,15 +386,13 @@ function parseRange(s){
 }
 
 function buildRecord(allItems,filename){
-  // ── Build sorted line array (top-to-bottom within each page) ──────────────
-  // Group items by page+Y (rounded to 3px tolerance)
+  // ── Build sorted line array ────────────────────────────────────────────────
   const lineMap={};
   allItems.forEach(it=>{
     const key=`${it.page}_${it.y}`;
     if(!lineMap[key])lineMap[key]={page:it.page,y:it.y,items:[]};
     lineMap[key].items.push(it);
   });
-  // Sort lines: by page ascending, then by Y descending (PDF Y=0 is bottom)
   const sortedLines=Object.values(lineMap)
     .sort((a,b)=>a.page!==b.page?a.page-b.page:b.y-a.y)
     .map(l=>({
@@ -402,47 +400,48 @@ function buildRecord(allItems,filename){
       page:l.page,y:l.y
     }))
     .filter(l=>l.text)
-    // Skip header/footer lines that appear on every page
     .filter(l=>{
       const t=l.text;
-      if(/medicina di laboratorio/i.test(t))return false;
-      if(/medicina trasfusionale/i.test(t))return false;
-      if(/^pag\.\s*:\s*\d/i.test(t))return false;
-      if(/nosologico:/i.test(t))return false;
-      if(/data nascita:/i.test(t))return false;
-      if(/id\. paz\./i.test(t))return false;
-      if(/documento informatico/i.test(t))return false;
-      if(/firma garantisce/i.test(t))return false;
-      if(/responsabilit/i.test(t))return false;
-      if(/sede di esecuzione/i.test(t))return false;
-      if(/patologia clinica/i.test(t))return false;
-      if(/direttore dr\./i.test(t))return false;
-      if(/direttore prof\./i.test(t))return false;
-      if(/pievesestina/i.test(t))return false;
-      if(/officina trasfusionale/i.test(t))return false;
-      // Skip [51] lines that contain words (not pure values)
-      if(/^\[51\]\s+[A-Za-z]/.test(t))return false;
+      // Skip headers/footers/long notes
+      if(t.length>80)return false;
+      if(/medicina di laboratorio|medicina trasfusionale/i.test(t))return false;
+      if(/^pag\.\s*:/i.test(t))return false;
+      if(/nosologico:|data nascita:|id\. paz\.|c\.f\.:/i.test(t))return false;
+      if(/documento informatico|firma garantisce|responsabilit/i.test(t))return false;
+      if(/sede di esecuzione|patologia clinica/i.test(t))return false;
+      if(/direttore (dr|prof)\./i.test(t))return false;
+      if(/pievesestina|officina trasfusionale/i.test(t))return false;
+      if(/^(calcolo|metodo|valore da|aumentare|i\.r\.|risultato da|valori target)/i.test(t))return false;
+      if(/^(niente altro|commento|osservazioni|materiale:|diuresi:|esame morfo)/i.test(t))return false;
+      if(/^(appropriata|nota |cut-off|intervallo di mis|il dosaggio|il valore di)/i.test(t))return false;
+      if(/^(per ogni|in caso|la firma|breakpoint|negativa la ricerca)/i.test(t))return false;
+      // Skip [code] lines that start with a lab code followed by letters (not values)
+      if(/^\[\d+\]\s+[A-Za-z]/.test(t))return false;
+      // Skip "campione non" lines (sample error/unavailable)
+      if(/campione non/i.test(t))return false;
+      // Skip pure range/note lines from Parma format (e.g. "100-125 mg/dL : alterata glicemia")
+      if(/:\s*(alterata|normale|ridotta|aumentata|deficit|insufficienza)/i.test(t))return false;
+      // Skip antibiogram lines
+      if(/breakpoint|parenterale|sensibile|resistente/i.test(t))return false;
       return true;
     });
-
-  // DEBUG focused
-  const debugParams=['Potassio','AST','Bilirubina Dir.','Linfociti','Neutrofili','Eosinofili','Basofili'];
-  console.log('=== PARSER START', filename, sortedLines.length, 'lines ===');
 
   const textLines=sortedLines.map(l=>l.text);
   const date=extractDate(textLines);
   const params={};
 
-  // ── Keywords to skip (urine context) for serum params ─────────────────────
+  // ── Skip contexts ──────────────────────────────────────────────────────────
   const BLOOD_ONLY=['Creatinina','Glucosio','Albumina'];
   const URINE_KW=['urinaria','urinario','nelle urine','urine-','chimico fisico',
                   '24 ore','mitto','creatinina urinaria','proteine totali urine',
-                  'elettroforesi','siero-elettroforesi','proteine siero'];
+                  'elettroforesi','siero-elettroforesi','proteine siero',
+                  'semi-quantitativo','dosaggio semi'];
 
-  // ── Helper: extract numeric value from a cleaned string ───────────────────
-  // Returns first plausible numeric result (not a year, not a 4+ digit code)
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function extractValue(s){
-    const nums=[...s.matchAll(/\b(\d{1,3}[.,]\d{1,4}|\d{1,3})\b/g)];
+    // Strip lab codes like [11], [51], [21] before extracting
+    s=s.replace(/\[\d+\]/g,'').trim();
+    const nums=[...s.matchAll(/(?<![0-9])(\d{1,3}[.,]\d{1,4}|\d{1,3})(?![0-9])/g)];
     for(const m of nums){
       const v=parseFloat(m[1].replace(',','.'));
       if(!isNaN(v)&&v>=0&&v<5000)return v;
@@ -450,187 +449,168 @@ function buildRecord(allItems,filename){
     return null;
   }
 
-  // ── Helper: extract unit from a string ────────────────────────────────────
   function extractUnit(s){
-    // After a number (possibly with *), find first alpha token
-    const m=s.match(/\d\s*\*?\s+([a-zA-Z%][a-zA-Z0-9%\/\^\-\.]*)/);
+    const m=s.match(/\d\s*\*?\s+([a-zA-Z%#][a-zA-Z0-9%\/\^\-\.]*)/);
     return m?m[1]:'';
   }
 
-  // ── Helper: extract range from a string ───────────────────────────────────
   function extractRange(s){
-    // Try X - Y pattern (take the LAST occurrence, most likely to be ref range)
+    // Last X - Y pattern is most likely the reference range
     const all=[...s.matchAll(/([\d.,]+)\s*[-–]\s*([\d.,]+)/g)];
-    if(all.length){
-      const last=all[all.length-1];
-      return`${last[1]} - ${last[2]}`;
-    }
+    if(all.length){const last=all[all.length-1];return`${last[1]} - ${last[2]}`;}
     const lt=s.match(/<\s*[\d.,]+/);if(lt)return lt[0];
     const gt=s.match(/>\s*[\d.,]+/);if(gt)return gt[0];
     return'';
   }
 
+  // Alias regex cache with strict word boundaries
+  const aliasRegexCache={};
+  function aliasMatches(alias,text){
+    if(!aliasRegexCache[alias]){
+      const esc=alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      // Boundary: not preceded/followed by letter, digit, or accent char
+      aliasRegexCache[alias]=new RegExp('(?<![a-zA-Z0-9àèéìòù])'+esc+'(?![a-zA-Z0-9àèéìòù])','i');
+    }
+    return aliasRegexCache[alias].test(text);
+  }
+
+  function lineHasParamAlias(text){
+    if(text.length>=80)return false;
+    const tl=text.toLowerCase();
+    return Object.keys(ALIASES).some(a=>aliasMatches(a,tl));
+  }
+
   // ── Main parsing loop ──────────────────────────────────────────────────────
-  // Two formats detected in these PDFs:
-  //
-  // FORMAT A (Parma AOU): value in same line as param name
-  //   e.g. "TACROLIMUS 2.5 * ng/mL 5.0 - 20.0"
-  //   e.g. "Gamma-GT 207 * U/L 0 - 60"
-  //
-  // FORMAT B (AUSL Romagna - Forlimpopoli): 3-line pattern
-  //   Line i:   "[51] S/P-Gamma GT (GGT)"          ← param name only
-  //   Line i+1: "* U/L 8 - 61"                      ← unit + range, no value
-  //   Line i+2: "[51] 127"  or  "[51] 127 *"        ← value only (with lab code)
+  // FORMAT A (Parma): "PARAM value unit range" all on one line
+  // FORMAT B (Forlì/Romagna): name line → unit+range line → [code] value line
+
+  // Track whether we're in a urine section (to skip urine params)
+  let inUrineSection=false;
 
   for(let i=0;i<sortedLines.length;i++){
     const raw=sortedLines[i].text;
     const clean=raw.replace(/\[\d+\]/g,'').trim();
     const ll=clean.toLowerCase();
 
-    // Skip urine exam section header lines
-    if(/esame urine|chimico fisico urine|urine-chimico/i.test(ll))continue;
+    // Detect urine section boundary
+    if(/esame urine|chimico fisico urine|urine-chimico/i.test(ll)){inUrineSection=true;continue;}
+    // Exit urine section when we see a new serum param or separator
+    if(inUrineSection&&/^s[\/\-]p-|^sg-|^s-|^p-/i.test(clean)){inUrineSection=false;}
+    if(inUrineSection)continue;
+
+    // Skip commentary lines that contain param names (eGFR disclaimer, etc.)
+    if(/aumentare del|calcolo applicabile|valore da valutare|non deve essere inteso|può non correlare/i.test(ll))continue;
+    // Skip Parma glycemia commentary lines
+    if(/glicemia a digiuno|alterata glicemia|cardiovascolare (molto |)alto|cardiovascolare (molto |)basso/i.test(ll))continue;
 
     for(const[alias,canon] of Object.entries(ALIASES)){
-      if(!ll.includes(alias))continue;
+      if(!aliasMatches(alias,ll))continue;
+      if(params[canon])continue; // already parsed
       if(BLOOD_ONLY.includes(canon)&&URINE_KW.some(k=>ll.includes(k)))continue;
 
-      // ── Detect format ──────────────────────────────────────────────────────
-      // If the name line contains NO numbers at all → definitely Format B (Forlimpopoli)
-      // where value is on a separate [51] line
-      const numsInNameLine=[...clean.matchAll(/\b(\d{1,3}[.,]\d{1,4}|\d{1,3})\b/g)]
-        .map(m=>parseFloat(m[1].replace(',','.')))
-        .filter(v=>!isNaN(v)&&v>=0&&v<5000);
-      const nameLineHasNoNumbers=numsInNameLine.length===0;
-
       let value=null,unit='',range='';
-
-      // Check if next 1-6 lines contain a standalone value line (Format B)
-      // B1: "[51] 9.6" — lab code + single number
-      // B2: "9.6 ug/L 5.0 - 20.0" — number-start line after param name (e.g. Tacrolimus)
       let formatB=false;
-      for(let delta=1;delta<=6;delta++){
+
+      // ── Try Format B: look ahead for value on separate line ────────────────
+      for(let delta=1;delta<=5;delta++){
         if(i+delta>=sortedLines.length)break;
         const nextRaw=sortedLines[i+delta].text;
         const nextClean=nextRaw.replace(/\[\d+\]/g,'').trim();
         const nextLl=nextClean.toLowerCase();
-        // Skip parenthetical method notes e.g. "(Siemens Dimension - ACMIA)"
-        if(/^\(.*\)/.test(nextClean))continue;
-        // Skip long disclaimer lines
-        if(nextClean.length>100)continue;
-        // Stop immediately if we hit another param name (even at delta=1)
-        const hasParamAlias=Object.keys(ALIASES).some(a=>nextLl.includes(a)&&nextClean.length<80);
-        if(hasParamAlias)break;
+        if(/^\(.*\)/.test(nextClean))continue; // skip method notes
+        if(nextClean.length>80)continue;
+        // Stop if we hit another param
+        if(lineHasParamAlias(nextLl))break;
         const startsWithCode=/^\[\d+\]/.test(nextRaw);
         const startsWithNumber=/^\d/.test(nextClean);
-        if(startsWithCode||(startsWithNumber)){
-          const v=extractValue(nextClean);
-          const words=nextClean.split(/\s+/).filter(w=>w.length>0);
-          const maxTokens=startsWithCode?3:7;
-          if(words.length<=maxTokens&&v!==null){
-            value=v;
-            if(startsWithCode){
-              if(delta>1){
-                const midClean=sortedLines[i+delta-1].text.replace(/\[\d+\]/g,'').trim();
-                unit=extractUnit(midClean)||extractUnit(nextClean);
-                range=extractRange(midClean);
-              } else {
-                unit=extractUnit(nextClean);
-                range=extractRange(clean)||extractRange(nextClean);
-              }
-            } else {
-              unit=extractUnit(nextClean);
-              range=extractRange(nextClean);
-            }
-            formatB=true;
-            break;
+        if(startsWithCode||startsWithNumber){
+          // For [code] lines: must be short (≤3 tokens after stripping code) and contain a number
+          // For number-start lines: must be short (≤7 tokens)
+          const stripped=nextClean.replace(/\[\d+\]/g,'').trim();
+          const words=stripped.split(/\s+/).filter(w=>w);
+          const maxTok=startsWithCode?3:7;
+          if(words.length>maxTok)break;
+          const v=extractValue(stripped);
+          if(v===null)break;
+          value=v;
+          // Get unit+range from the line between name and value (if exists)
+          if(delta>1){
+            const midLine=sortedLines[i+delta-1].text.replace(/\[\d+\]/g,'').trim();
+            // Only use midLine for range if it's NOT another param name
+            const midIsParam=lineHasParamAlias(midLine.toLowerCase());
+            unit=(!midIsParam&&extractUnit(midLine))||extractUnit(stripped);
+            range=(!midIsParam&&extractRange(midLine))||extractRange(stripped);
+          } else {
+            unit=extractUnit(stripped);
+            range=extractRange(clean)||extractRange(stripped);
           }
+          formatB=true;
+          break;
         }
-        // Stop looking if we hit another param name line (delta>1 fallback)
-        if(delta>1&&!startsWithNumber){
-          if(hasParamAlias)break;
-        }
+        // If it's a text line and not a param, stop looking further
+        if(!startsWithNumber)break;
       }
 
-      // Format A: value embedded in same line as param name
+      // ── Format A: value on same line ───────────────────────────────────────
       if(!formatB){
-        // Remove the alias text itself to avoid matching part of the param name as a number
         const withoutAlias=clean.replace(new RegExp(alias,'i'),'').trim();
-        value=extractValue(withoutAlias);
-        if(value===null){
-          // Try full line
-          value=extractValue(clean);
+        const v=extractValue(withoutAlias);
+        if(v===null)continue;
+        // Reject if the "value" is actually part of the reference range
+        // i.e. the line only contains a range and no actual result value
+        // Heuristic: if withoutAlias is ONLY range/unit (no extra number before the range)
+        const rangeStr=extractRange(withoutAlias);
+        if(rangeStr){
+          // Check if the extracted value matches the range boundaries
+          const pr=parseRange(rangeStr);
+          if((pr.min!==null&&v===pr.min)||(pr.max!==null&&v===pr.max)){
+            // Value equals a range boundary — likely a header-only line, skip
+            continue;
+          }
         }
+        value=v;
         unit=extractUnit(clean);
-        range=extractRange(clean);
+        range=rangeStr||extractRange(clean);
+        // For Parma lines like "PARAM range" (no value on same line) — skip
+        // These are header rows; actual value follows on next lines
+        // Heuristic: if withoutAlias starts with a range-like pattern, skip
+        if(/^\s*[\d.,]+\s*[-–]\s*[\d.,]+\s*$/.test(withoutAlias.replace(/[a-zA-Z%\/\^<>\s]+/g,' ').trim())){
+          continue;
+        }
       }
 
       if(value===null)continue;
 
-      // Sanity check: reject obviously wrong values
-      // e.g. Creatinina should be 0.5-15, not 50/100 (those are urine)
+      // ── Sanity check ───────────────────────────────────────────────────────
       const sanity={
-        'Creatinina':[0.3,15],
-        'eGFR':[5,150],
-        'Emoglobina':[3,25],
-        'Tacrolimus':[0.1,50],
-        'GGT':[1,2000],
-        'ALT':[1,500],
-        'AST':[1,500],
-        'Fosfatasi Alc.':[1,1000],
-        'LDH':[1,3000],
-        'Bilirubina Tot.':[0.01,10],
-        'Bilirubina Dir.':[0.01,3],
-        'Glucosio':[10,500],
-        'Sodio':[100,200],
-        'Potassio':[1,8],
-        'Calcio Totale':[1,15],
-        'Magnesio':[0.1,5],
-        'Fosfato':[0.1,10],
-        'Albumina':[20,55],
-        'PTH':[1,1000],
-        'Vitamina D':[1,300],
-        'HbA1c':[10,60],
-        'TSH':[0.001,100],
-        'Piastrine':[10,1500],
-        'Globuli Bianchi':[0.5,30],
-        'Globuli Rossi':[0.5,10],
-        'Ematocrito':[10,60],
-        'MCV':[50,130],
-        'MCH':[10,45],
-        'MCHC':[20,42],
-        'Neutrofili':[0.01,15],
-        'Linfociti':[0.01,10],
-        'Monociti':[0.001,4],
-        'Eosinofili':[0,3],
-        'Basofili':[0,1],
-        'Ferritina':[1,5000],
-        'Ferro':[1,400],
-        'Transferrina':[0.5,5],
-        'Sat. Transferrina':[1,80],
-        'Colesterolo Tot.':[50,500],
-        'Colesterolo HDL':[5,200],
-        'Colesterolo LDL':[5,300],
-        'Trigliceridi':[10,2000],
-        'PCR':[0.01,500],
-        'Urea':[5,200],
-        'Acido Urico':[1,15],
-        'Amilasi':[1,1000],
-        'CPK':[1,5000],
+        'Creatinina':[0.3,15],'eGFR':[5,150],'Emoglobina':[3,25],
+        'Tacrolimus':[0.1,50],'GGT':[1,2000],'ALT':[1,500],'AST':[1,500],
+        'Fosfatasi Alc.':[1,1000],'LDH':[10,3000],
+        'Bilirubina Tot.':[0.01,10],'Bilirubina Dir.':[0.01,3],
+        'Glucosio':[20,500],'Sodio':[100,200],'Potassio':[1,8],
+        'Calcio Totale':[1,15],'Magnesio':[0.1,5],'Fosfato':[0.1,10],
+        'Albumina':[20,55],'PTH':[1,1000],'Vitamina D':[1,300],
+        'HbA1c':[10,60],'TSH':[0.001,100],
+        'Piastrine':[10,1500],'Globuli Bianchi':[0.5,30],
+        'Globuli Rossi':[0.5,10],'Ematocrito':[10,60],
+        'MCV':[50,130],'MCH':[10,45],'MCHC':[20,42],
+        'Neutrofili':[0.01,15],'Linfociti':[0.01,10],
+        'Monociti':[0.001,4],'Eosinofili':[0,3],'Basofili':[0,1],
+        'Ferritina':[1,5000],'Ferro':[1,400],
+        'Transferrina':[0.5,5],'Sat. Transferrina':[1,80],
+        'Colesterolo Tot.':[50,500],'Colesterolo HDL':[5,200],
+        'Colesterolo LDL':[5,300],'Trigliceridi':[10,2000],
+        'PCR':[0.01,500],'Urea':[5,200],'Acido Urico':[1,15],
+        'Amilasi':[1,1000],'CPK':[1,5000],
       };
       if(sanity[canon]){
         const[lo,hi]=sanity[canon];
         if(value<lo||value>hi)continue;
       }
 
-      if(!params[canon]){
-        if(debugParams.includes(canon)){
-          console.log(`✅ PARSED ${canon}=${value} range="${range}" | line[${i}]:"${raw}" | formatB=${formatB}`);
-          if(formatB) console.log(`   value-line: "${sortedLines[i+ (()=>{for(let d=1;d<=6;d++){const nr=sortedLines[i+d]?.text||'';if(/^\[\d+\]/.test(nr)||/^\d/.test(nr.replace(/\[\d+\]/g,'').trim()))return d;}return 1})()]?.text}"`);
-        }
-        params[canon]={value,unit,...parseRange(range)};
-      } else if(debugParams.includes(canon)){
-        console.log(`⚠️ SKIP ${canon}=${value} (already set to ${params[canon].value}) | line:"${raw}"`);
-      }
+      // ── Store ──────────────────────────────────────────────────────────────
+      console.log(`PARSED: ${canon} = ${value} (range: ${range}) from line ${i}: "${raw}"`);
+      params[canon]={value,unit,...parseRange(range)};
       break;
     }
   }
