@@ -339,12 +339,55 @@ window.onerror=function(m,s,l,c,e){
 };
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
-let records = JSON.parse(localStorage.getItem('mc_records')||'[]');
-let selected = JSON.parse(localStorage.getItem('mc_selected')||'[]');
+// ── Compact serialization to save localStorage space ─────────────────────────
+function compactRecords(recs){
+  // Store params as flat array [name,value,unit,min,max] instead of objects
+  return recs.map(r=>({
+    id:r.id,date:r.date,filename:r.filename,
+    p:Object.entries(r.params).map(([k,v])=>[k,v.value,v.unit||'',v.min??'',v.max??''])
+  }));
+}
+function expandRecords(compact){
+  return compact.map(r=>({
+    id:r.id,date:r.date,filename:r.filename,
+    params:Object.fromEntries((r.p||[]).map(([k,value,unit,min,max])=>[k,{
+      value,unit:unit||'',
+      min:min===''||min===null||min===undefined?null:+min,
+      max:max===''||max===null||max===undefined?null:+max
+    }]))
+  }));
+}
+
+let records=(()=>{
+  try{
+    const raw=localStorage.getItem('mc_records');
+    if(!raw)return[];
+    const parsed=JSON.parse(raw);
+    // Detect compact format (has 'p' key) vs old format (has 'params' key)
+    if(parsed.length&&parsed[0].p)return expandRecords(parsed);
+    return parsed;
+  }catch(e){return[];}
+})();
+let selected=(()=>{try{return JSON.parse(localStorage.getItem('mc_selected')||'[]');}catch(e){return[];}})();
 
 function save(){
-  localStorage.setItem('mc_records',JSON.stringify(records));
-  localStorage.setItem('mc_selected',JSON.stringify(selected));
+  try{
+    const compact=JSON.stringify(compactRecords(records));
+    localStorage.setItem('mc_records',compact);
+    localStorage.setItem('mc_selected',JSON.stringify(selected));
+  }catch(e){
+    // localStorage quota exceeded — clear old data and retry once
+    if(e.name==='QuotaExceededError'||e.code===22){
+      try{
+        localStorage.removeItem('mc_records');
+        localStorage.setItem('mc_records',JSON.stringify(compactRecords(records)));
+        localStorage.setItem('mc_selected',JSON.stringify(selected));
+        toast('⚠ Spazio locale quasi esaurito — considera di esportare i dati','err');
+      }catch(e2){
+        toast('⚠ Impossibile salvare: spazio locale esaurito. Esporta JSON per non perdere i dati.','err');
+      }
+    }
+  }
   if(driveToken)syncToDrive();
 }
 
