@@ -169,11 +169,63 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 .tab-pane.active{display:block}
 
 
-  .hdr{padding:14px 16px}
-  .wrap{padding:18px 14px}
-  .hdr-right .btn span{display:none}
-  .cards{grid-template-columns:1fr}
-@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+/* HOME PAGE */
+.home-page{min-height:calc(100vh - 70px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;gap:40px}
+.home-logo{text-align:center}
+.home-logo .logo-mark-big{width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px;box-shadow:0 0 40px rgba(61,255,160,.2)}
+.home-logo h1{font-size:36px;background:linear-gradient(90deg,var(--green),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.home-logo p{color:var(--text2);font-size:15px;font-family:'IBM Plex Sans',sans-serif}
+.home-cards{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;width:100%;max-width:700px}
+.home-card{flex:1;min-width:260px;max-width:320px;background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:32px 28px;cursor:pointer;transition:.22s;position:relative;overflow:hidden;text-align:center}
+.home-card::before{content:'';position:absolute;inset:0;opacity:0;transition:.22s;border-radius:20px}
+.home-card.analisi::before{background:radial-gradient(ellipse at 50% 0%,rgba(61,255,160,.08),transparent 70%)}
+.home-card.referti::before{background:radial-gradient(ellipse at 50% 0%,rgba(92,159,255,.08),transparent 70%)}
+.home-card:hover{transform:translateY(-4px);border-color:var(--border2)}
+.home-card.analisi:hover{border-color:var(--green)}
+.home-card.referti:hover{border-color:var(--blue)}
+.home-card:hover::before{opacity:1}
+.home-card-icon{font-size:44px;margin-bottom:16px;display:block}
+.home-card h2{font-size:22px;margin-bottom:8px}
+.home-card p{color:var(--text2);font-size:13px;line-height:1.6;font-family:'IBM Plex Sans',sans-serif}
+.home-card-badge{position:absolute;top:14px;right:14px;background:var(--s3);border:1px solid var(--border);border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600;color:var(--text2);font-family:'IBM Plex Sans',sans-serif}
+
+/* REFERTI PAGE */
+.ref-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.ref-search{background:var(--s2);border:1px solid var(--border2);border-radius:9px;padding:9px 14px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;flex:1;min-width:200px;max-width:340px;transition:.2s}
+.ref-search:focus{border-color:var(--blue)}
+.ref-filter{background:var(--s2);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;cursor:pointer}
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.ref-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.ref-card:hover{border-color:var(--blue);transform:translateY(-2px)}
+.ref-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--green));opacity:0;transition:.2s}
+.ref-card:hover::before{opacity:1}
+.ref-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.ref-reparto{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:5px;background:var(--blue2);color:var(--blue);border:1px solid rgba(92,159,255,.25)}
+.ref-date{font-size:11px;color:var(--text3);font-weight:500}
+.ref-title{font-size:15px;font-weight:500;color:var(--text);margin-bottom:4px;font-family:'Lora',serif}
+.ref-subtitle{font-size:12px;color:var(--text2)}
+.ref-card-foot{display:flex;gap:7px;margin-top:12px}
+
+/* PDF VIEWER MODAL */
+.pdf-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:800;display:none;backdrop-filter:blur(6px)}
+.pdf-modal{position:fixed;inset:20px;z-index:801;background:var(--s1);border:1px solid var(--border2);border-radius:16px;display:none;flex-direction:column;overflow:hidden}
+.pdf-modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);gap:12px;flex-shrink:0}
+.pdf-modal-title{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pdf-modal-actions{display:flex;gap:8px;flex-shrink:0}
+.pdf-modal-body{flex:1;overflow:auto;padding:16px;display:flex;justify-content:center;background:#1a1a1a}
+.pdf-pages{display:flex;flex-direction:column;gap:12px;align-items:center;width:100%}
+.pdf-page-canvas{max-width:100%;border-radius:4px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+
+/* REPARTO SECTIONS */
+.ref-section{margin-bottom:28px}
+.ref-section-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.ref-section-icon{font-size:18px}
+.ref-section-title{font-size:15px;font-weight:600;color:var(--text)}
+.ref-section-count{font-size:11px;color:var(--text3);background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:1px 8px}
+
+.page-section{display:none}
+.page-section.active{display:block}
+
 .info-section{margin-bottom:22px}
 .info-section h4{font-family:'Lora',serif;font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .info-section p{color:var(--text2);font-size:14px;line-height:1.7}
@@ -183,43 +235,90 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 <body>
 
 <header class="hdr">
-  <div class="logo">
+  <div class="logo" style="cursor:pointer" onclick="goHome()">
     <div class="logo-mark">🩺</div>
     <span class="logo-name">MedChart</span>
   </div>
-  <div class="hdr-right">
-    <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ Esporta JSON</button>
-    <button class="btn btn-outline btn-sm" onclick="document.getElementById('importJSON').click()">⬆ Importa JSON</button>
+  <div class="hdr-right" id="hdrRight">
+    <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ JSON</button>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('importJSON').click()">⬆ JSON</button>
     <input type="file" id="importJSON" accept=".json" style="display:none" onchange="importData(event)">
     <button class="btn btn-outline btn-sm" id="driveBtn" onclick="toggleDrive()">Drive</button>
+    <button class="btn btn-outline btn-sm" id="backHomeBtn" onclick="goHome()" style="display:none">⌂ Home</button>
   </div>
 </header>
 
-<main class="wrap">
-
-  <!-- DRIVE BAR -->
-  <div id="driveBar" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:20px;display:none;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
-    <div style="display:flex;align-items:center;gap:8px">
-      <span id="driveDot" style="width:8px;height:8px;border-radius:50%;background:var(--text3);display:inline-block"></span>
-      <span id="driveBarText">Non connesso</span>
+<!-- ══ HOME PAGE ══════════════════════════════════════════════════════════════ -->
+<div id="pageHome" class="page-section active">
+  <div class="home-page">
+    <div class="home-logo">
+      <div class="logo-mark-big">🩺</div>
+      <h1>MedChart</h1>
+      <p>Il tuo fascicolo sanitario personale</p>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-outline btn-sm" id="driveSyncBtn" onclick="syncToDrive()" style="display:none">↑ Salva su Drive</button>
-      <button class="btn btn-outline btn-sm" id="driveLoadBtn" onclick="loadFromDrive()" style="display:none">↓ Carica da Drive</button>
-      <button class="btn btn-red btn-sm" id="driveDiscBtn" onclick="disconnectDrive()" style="display:none">Disconnetti</button>
+
+    <!-- DRIVE BAR on home -->
+    <div id="driveBar" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;align-items:center;justify-content:space-between;gap:12px;font-size:13px;width:100%;max-width:700px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="driveDot" style="width:8px;height:8px;border-radius:50%;background:var(--text3);display:inline-block"></span>
+        <span id="driveBarText">Non connesso</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" id="driveSyncBtn" onclick="syncToDrive()" style="display:none">↑ Salva</button>
+        <button class="btn btn-outline btn-sm" id="driveLoadBtn" onclick="loadFromDrive()" style="display:none">↓ Carica</button>
+        <button class="btn btn-red btn-sm" id="driveDiscBtn" onclick="disconnectDrive()" style="display:none">Disconnetti</button>
+      </div>
+    </div>
+
+    <div class="home-cards">
+      <div class="home-card analisi" onclick="goTo('analisi')">
+        <span id="homeBadgeAnalisi" class="home-card-badge">0 analisi</span>
+        <span class="home-card-icon">📊</span>
+        <h2>Analisi</h2>
+        <p>Grafici e trend dei tuoi esami del sangue nel tempo. Monitora i valori fuori range.</p>
+      </div>
+      <div class="home-card referti" onclick="goTo('referti')">
+        <span id="homeBadgeReferti" class="home-card-badge">0 referti</span>
+        <span class="home-card-icon">📋</span>
+        <h2>Referti</h2>
+        <p>Visite specialistiche, referti di cardiologia, nefrologia, radiologia e altro.</p>
+      </div>
+    </div>
+
+    <!-- UNIFIED UPLOAD -->
+    <div style="width:100%;max-width:700px">
+      <div class="drop" id="homeDrop"
+        ondragover="ev(event,'over')" ondragleave="ev(event,'leave')" ondrop="uniDrop(event)">
+        <span class="drop-icon" style="font-size:32px">📄</span>
+        <h2 style="font-size:18px;margin-bottom:6px">Carica PDF</h2>
+        <p style="font-size:13px">Analisi del sangue o referti specialistici — vengono classificati automaticamente</p>
+        <div style="position:relative;display:inline-block;margin-top:14px" id="uniBtn">
+          <button class="btn btn-primary" style="cursor:pointer">+ Carica PDF</button>
+          <input type="file" accept=".pdf" multiple onchange="handleFiles(this.files);this.value=''"
+            style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+        </div>
+        <div class="progress" id="uniProg"><div class="progress-bar" id="uniBar"></div></div>
+      </div>
+      <div id="uniResult" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center;min-height:18px"></div>
     </div>
   </div>
+</div>
+
+<!-- ══ ANALISI PAGE ════════════════════════════════════════════════════════════ -->
+<div id="pageAnalisi" class="page-section">
+<main class="wrap">
 
   <!-- UPLOAD -->
-  <div class="drop" id="drop" onclick="document.getElementById('pdfInput').click()"
+  <div class="drop" id="drop"
     ondragover="ev(event,'over')" ondragleave="ev(event,'leave')" ondrop="ev(event,'drop')">
-    <input type="file" id="pdfInput" accept=".pdf" multiple style="display:none" onchange="handleFiles(this.files)">
     <span class="drop-icon">📄</span>
-    <h2>Carica le tue analisi</h2>
-    <p>Trascina i PDF dal Fascicolo Sanitario Elettronico, oppure clicca</p>
-    <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('pdfInput').click()" id="uploadBtn">
-      + Aggiungi PDF
-    </button>
+    <h2>Carica PDF</h2>
+    <p>Analisi del sangue o referti specialistici — vengono classificati automaticamente</p>
+    <div style="position:relative;display:inline-block" id="uploadBtn">
+      <button class="btn btn-primary" style="cursor:pointer">+ Carica PDF</button>
+      <input type="file" accept=".pdf" multiple onchange="handleFiles(this.files);this.value=''"
+        style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+    </div>
     <div class="progress" id="prog"><div class="progress-bar" id="progBar"></div></div>
   </div>
 
@@ -231,7 +330,6 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 
   <!-- TAB: GRAFICI -->
   <div class="tab-pane active" id="tabGrafici">
-    <!-- CHARTS -->
     <div class="sec" id="chartSec" style="display:none">
       <div class="sec-head">
         <div class="sec-title">📈 Grafici</div>
@@ -254,7 +352,7 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 
       <!-- ALERT BANNER -->
       <div id="alertBanner" style="display:none" class="alert-banner">
-        <div class="alert-banner-head">⚠ Valori fuori range</div>
+        <div class="alert-banner-head">⚠ Valori fuori range — ultimo esame</div>
         <div class="alert-items" id="alertItems"></div>
       </div>
 
@@ -277,7 +375,6 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
         <p>Clicca i bottoni sopra per visualizzare i grafici</p>
       </div>
     </div>
-    <!-- EMPTY -->
     <div class="empty" id="emptyState">
       <span class="empty-icon">🔬</span>
       <h3>Nessuna analisi ancora</h3>
@@ -296,9 +393,66 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
     </div>
   </div>
 
+</main>
+</div>
 
+<!-- ══ REFERTI PAGE ════════════════════════════════════════════════════════════ -->
+<div id="pageReferti" class="page-section">
+<main class="wrap">
 
-<div class="toasts" id="toasts"></div>
+  <div class="sec-head" style="margin-bottom:20px">
+    <div class="sec-title">📋 Referti Specialistici</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="position:relative;display:inline-block">
+        <button class="btn btn-primary btn-sm" style="cursor:pointer">+ Carica PDF</button>
+        <input type="file" accept=".pdf" multiple onchange="handleFiles(this.files);this.value=''"
+          style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      </div>
+      <button class="btn btn-red btn-sm" onclick="clearAllReferti()">🗑 Cancella tutto</button>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="ref-toolbar">
+    <input class="ref-search" type="text" id="refSearch" placeholder="🔍 Cerca referto, reparto, data…" oninput="renderReferti()">
+    <select class="ref-filter" id="refFilter" onchange="renderReferti()">
+      <option value="">Tutti i reparti</option>
+    </select>
+    <div id="refProgWrap" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+      <div style="width:140px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div id="refProgBar" style="height:100%;background:linear-gradient(90deg,var(--blue),var(--green));width:0;transition:width .3s"></div>
+      </div>
+      <span id="refProgTxt">Caricamento…</span>
+    </div>
+  </div>
+
+  <div id="refList"></div>
+
+  <div class="empty" id="refEmpty">
+    <span class="empty-icon">📋</span>
+    <h3>Nessun referto ancora</h3>
+    <p>Aggiungi i PDF delle visite specialistiche — verranno salvati su Google Drive per reparto</p>
+  </div>
+
+</main>
+</div>
+
+<!-- PDF VIEWER MODAL -->
+<div class="pdf-overlay" id="pdfOverlay" onclick="closePdfViewer()"></div>
+<div class="pdf-modal" id="pdfModal">
+  <div class="pdf-modal-head">
+    <div class="pdf-modal-title" id="pdfModalTitle">Referto</div>
+    <div class="pdf-modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="openPdfInTab()" title="Apri in nuova scheda">↗ Apri</button>
+      <button class="btn btn-outline btn-sm" id="pdfEmailBtn" onclick="emailReferto()">✉ Email</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadCurrentPdf()">⬇ Scarica</button>
+      <button class="btn btn-red btn-sm" onclick="closePdfViewer()">✕ Chiudi</button>
+    </div>
+  </div>
+  <div class="pdf-modal-body">
+    <div class="pdf-pages" id="pdfPages"></div>
+  </div>
+</div>
 
 <!-- CHART TOOLTIP -->
 <div class="ctip" id="ctip">
@@ -326,17 +480,61 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   </div>
 </div>
 
+<div class="toasts" id="toasts"></div>
+
+<!-- DEBUG PANEL -->
+<div id="_dbgBtn" onclick="document.getElementById('_dbgBox').style.display=document.getElementById('_dbgBox').style.display==='none'?'block':'none'"
+  style="position:fixed;bottom:12px;left:12px;background:#1f2330;border:1px solid #3d4459;border-radius:8px;padding:5px 10px;font-size:11px;color:#7a8299;cursor:pointer;z-index:9000;font-family:monospace">
+  🐛 log
+</div>
+<div id="_dbgBox" style="display:none;position:fixed;bottom:44px;left:12px;width:360px;max-height:260px;overflow-y:auto;background:#0a0c10;border:1px solid #3d4459;border-radius:10px;padding:10px;z-index:9001;font-size:11px;font-family:monospace">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+    <span style="color:#7a8299">Console log</span>
+    <button onclick="document.getElementById('_dbgPanel').innerHTML='';event.stopPropagation()" style="background:none;border:none;color:#7a8299;cursor:pointer;font-size:11px">Pulisci</button>
+  </div>
+  <div id="_dbgPanel"></div>
+</div>
+
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
 <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='';
-window.onerror=function(m,s,l,c,e){
-  var d=document.createElement('div');
-  d.style.cssText='position:fixed;top:0;left:0;right:0;background:#ff5c5c;color:#fff;padding:12px;font-size:13px;z-index:9999';
-  d.textContent='Errore JS: '+m+' (riga '+l+')';
-  document.body.appendChild(d);
-};
+
+// ── VISIBLE DEBUG LOG ─────────────────────────────────────────────────────────
+(function(){
+  var log=[];
+  function showLog(){
+    var el=document.getElementById('_dbgPanel');
+    if(!el)return;
+    el.innerHTML=log.slice(-30).map(function(e){
+      return'<div style="border-bottom:1px solid #333;padding:4px 0;color:'+(e.t==='err'?'#ff5c5c':e.t==='warn'?'#ffcc44':e.t==='log'?'#3dffa0':'#aaa')+'">'+
+        '<b>['+e.t.toUpperCase()+']</b> '+e.m+'</div>';
+    }).join('');
+    el.scrollTop=el.scrollHeight;
+  }
+  function addLog(t,args){
+    var m=Array.from(args).map(function(a){try{return typeof a==='object'?JSON.stringify(a).slice(0,200):String(a);}catch(x){return'[obj]';}}).join(' ');
+    log.push({t:t,m:m});showLog();
+  }
+  var _cl=console.log.bind(console);
+  var _ce=console.error.bind(console);
+  var _cw=console.warn.bind(console);
+  console.log=function(){_cl.apply(console,arguments);addLog('log',arguments);};
+  console.error=function(){_ce.apply(console,arguments);addLog('err',arguments);};
+  console.warn=function(){_cw.apply(console,arguments);addLog('warn',arguments);};
+  window.onerror=function(m,s,l){
+    addLog('err',['JS Error: '+m+' (line '+l+')']);
+    var d=document.createElement('div');
+    d.style.cssText='position:fixed;top:0;left:0;right:0;background:#ff5c5c;color:#fff;padding:10px 14px;font-size:13px;z-index:9999;cursor:pointer';
+    d.textContent='⚠ Errore JS: '+m+' (riga '+l+') — clicca per chiudere';
+    d.onclick=function(){d.remove();};
+    document.body.appendChild(d);
+  };
+  window.addEventListener('unhandledrejection',function(e){
+    addLog('err',['Promise error: '+(e.reason&&e.reason.message?e.reason.message:String(e.reason))]);
+  });
+})();
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 // ── Compact serialization to save localStorage space ─────────────────────────
@@ -462,10 +660,11 @@ const GROUPS={
 };
 
 // ── PDF PARSER ────────────────────────────────────────────────────────────────
+const _pdfCache={}; // in-memory only: String(id) -> base64 pdfData
+
 async function parsePDF(file){
   const ab=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:ab}).promise;
-  // Collect raw items with page/Y/X coordinates
   let allItems=[];
   for(let p=1;p<=pdf.numPages;p++){
     const pg=await pdf.getPage(p);
@@ -475,14 +674,31 @@ async function parsePDF(file){
         allItems.push({page:p,y:Math.round(it.transform[5]),x:it.transform[4],t:it.str.trim()});
     });
   }
-  return buildRecord(allItems,file.name);
+  const rec=buildRecord(allItems,file.name);
+  // Cache PDF data in memory for viewing this session
+  const b64=await fileToBase64(file);
+  _pdfCache[String(rec.id)]=b64;
+  console.log('PDF cached for id='+String(rec.id)+' file='+file.name);
+  return rec;
 }
 
 function extractDate(lines){
+  // Priority 1: "Prelievo: DD/MM/YYYY" (actual sample date)
+  for(const l of lines){
+    const m=l.match(/prelievo[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+    if(m)return m[1];
+  }
+  // Priority 2: "Data esame DD/MM/YYYY"
+  for(const l of lines){
+    const m=l.match(/data\s+esame[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+    if(m)return m[1];
+  }
+  // Priority 3: "Prodotto il DD/MM/YYYY"
   for(const l of lines){
     const m=l.match(/prodotto il[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
     if(m)return m[1];
   }
+  // Fallback: first date found anywhere
   for(const l of lines){
     const m=l.match(/(\d{2}\/\d{2}\/\d{4})/);
     if(m)return m[1];
@@ -764,7 +980,9 @@ function buildRecord(allItems,filename){
 
   return{
     id:Date.now()+Math.random(),
-    filename,date,params,
+    filename: date ? makeLabFilename(date) : filename,
+    originalFilename: filename,
+    date,params,
     addedAt:new Date().toISOString()
   };
 }
@@ -780,6 +998,26 @@ function sortDate(d){
   if(!d)return'';
   const[dd,mm,yy]=d.split('/');
   return`${yy}-${mm}-${dd}`;
+}
+// Convert ISO date (YYYY-MM-DD) or DD/MM/YYYY to DD-MM-YYYY for filenames
+function dateToFileStr(d){
+  if(!d)return'senza-data';
+  if(d.includes('-')&&d.indexOf('-')===4){
+    // ISO: YYYY-MM-DD
+    const[y,m,dd]=d.split('-');
+    return`${dd}-${m}-${y}`;
+  }
+  // DD/MM/YYYY
+  return d.replace(/\//g,'-');
+}
+// Build a clean display filename: DD-MM-YYYY_titolo.pdf
+function makeLabFilename(date){
+  return`${dateToFileStr(date)}_analisi.pdf`;
+}
+function makeRefertoFilename(date,title){
+  const clean=title.replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g,'').trim()
+    .replace(/\s+/g,'-').slice(0,40).toLowerCase();
+  return`${dateToFileStr(date)}_${clean}.pdf`;
 }
 function status(v,mn,mx){
   if(mn!==null&&v<mn)return'low';
@@ -805,55 +1043,191 @@ function hasAlert(p){
 // ── DRAG & DROP ───────────────────────────────────────────────────────────────
 function ev(e,t){
   e.preventDefault();e.stopPropagation();
-  const d=document.getElementById('drop');
-  if(t==='over')d.classList.add('over');
-  else if(t==='leave')d.classList.remove('over');
-  else if(t==='drop'){d.classList.remove('over');handleFiles(e.dataTransfer.files);}
+  const d=document.getElementById('drop')||document.getElementById('homeDrop');
+  if(d){
+    if(t==='over')d.classList.add('over');
+    else if(t==='leave')d.classList.remove('over');
+  }
+  if(t==='drop'){if(d)d.classList.remove('over');handleFiles(e.dataTransfer.files);}
+}
+
+function uniDrop(e){
+  e.preventDefault();
+  const d=document.getElementById('homeDrop');
+  if(d)d.classList.remove('over');
+  handleFiles(e.dataTransfer.files);
 }
 
 // ── FILE HANDLING ─────────────────────────────────────────────────────────────
-async function handleFiles(files){
+// ── PDF CLASSIFIER: lab vs referto ───────────────────────────────────────────
+async function classifyPDF(file){
+  // Returns 'lab' or 'referto'
+  try{
+    const ab=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+    const page=await pdf.getPage(1);
+    const tc=await page.getTextContent();
+    const text=tc.items.map(i=>i.str).join(' ');
 
+    // ── SEGNALI LAB ASSOLUTI (vincono sempre) ────────────────────────────────
+    if(/\[\d+\]\s+S\/P-|\[\d+\]\s+Sg-|\[\d+\]\s+S-|\[\d+\]\s+P-/.test(text)) return 'lab';
+    if(/AZIENDA OSPEDALIERO-UNIVERSITARIA DI PARMA/i.test(text)) return 'lab';
+    if(/WBC globuli bianchi|RBC globuli rossi|PLT piastrine/i.test(text)) return 'lab';
+    if(/Hb emoglobina\s+\d|Ht ematocrito\s+\d/i.test(text)) return 'lab';
+    if(/Esame\s+Esito\s+U\.M\./i.test(text)) return 'lab'; // tabella lab Parma
+    if(/\[\d{2,3}\]/.test(text) && /fascicolo sanitario|medicina di laboratorio/i.test(text)) return 'lab';
+
+    // ── SEGNALI REFERTO RADIOLOGICO (molto specifici) ─────────────────────────
+    if(/U\.O\..*[Rr]adiolog/.test(text)) return 'referto';           // U.O. di Radiologia
+    if(/Dipartimento.*[Ii]mmagin/.test(text)) return 'referto';      // Dipartimento Immagini
+    if(/ANGIO\s+TC|TAC\b|\bTC\s+[A-Z]/.test(text) &&
+       /[Rr]eferto|[Mm]edico\s+[Rr]efertante|Data\s+esame/i.test(text)) return 'referto';
+    if(/\bRX\s+[A-Z]|\bRADIOGRAFIA/i.test(text) &&
+       /[Rr]eferto|[Mm]edico|Data\s+esame/i.test(text)) return 'referto';
+    if(/[Ee]cografia|[Rr]isonanza\s+[Mm]agn/i.test(text) &&
+       /[Rr]eferto|Data\s+esame/i.test(text)) return 'referto';
+    if(/T\.S\.R\.M\.|Medico\s+Refertante/i.test(text)) return 'referto'; // firma tecnico radiologia
+
+    // ── SEGNALI REFERTO CLINICO ────────────────────────────────────────────────
+    if(/VISITA\s+\w+CA\b/i.test(text)) return 'referto';
+    if(/ECG\s*\+\s*VISITA|ELETTROCARDIOGRAMMA/i.test(text)) return 'referto';
+    if(/CONCLUSIONI\s*:/i.test(text)) return 'referto';
+    if(/TERAPIA\s+(?:CONSIGLIATA|IN ATTO)/i.test(text)) return 'referto';
+    if(/Fattori di rischio|Sintesi anamnestica|Esame obiettivo/i.test(text)) return 'referto';
+    if(/U\.O\.\s*(?:di\s*)?(?:MEDICINA|CHIRURGI|CARDIOLOG|NEFROL|GASTRO|DERMAT|ONCOL|PNEUM|NEUROL|ORTOP|ENDOCRIN|UROLOG|EPATOL)/i.test(text)) return 'referto';
+    if(/[Mm]edico\s+(?:[Rr]ichiedente|[Ee]saminatore|[Rr]efertante)/i.test(text)) return 'referto';
+    if(/Data\s+esame[:\s]+\d{1,2}[\/\.]\d{1,2}[\/\.]\d{4}/i.test(text)) return 'referto';
+    if(/[Cc]odice\s+[Rr]eferto/i.test(text)) return 'referto'; // presente in tutti i referti SSN
+
+    // ── PUNTEGGIO FINALE ──────────────────────────────────────────────────────
+    let labScore=0, refScore=0;
+    if(/emocromo|emoglobina|creatinina|leucociti|globuli/i.test(text)) labScore+=2;
+    if(/eGFR|filtrazione glomerulare/i.test(text)) labScore++;
+    if(/SODIO|POTASSIO|GLUCOSIO|ALBUMINA|FERRITINA/i.test(text)) labScore++;
+    if(/diagnosi|terapia|anamnesi|obiettivit|prognosi/i.test(text)) refScore+=2;
+    if(/[Dd]ott\.\s+[A-Z]|[Dd]r\.\s+[A-Z]/.test(text)) refScore++;
+    if(/[Aa]mbulatorio|[Ss]pecialista/.test(text)) refScore++;
+
+    return labScore > refScore ? 'lab' : 'referto';
+  }catch(e){return 'lab';}
+}
+
+async function handleFiles(files){
   const pdfs=[...files].filter(f=>f.name.endsWith('.pdf'));
   if(!pdfs.length){toast('Seleziona file PDF validi','err');return;}
-  const btn=document.getElementById('uploadBtn');
-  const prog=document.getElementById('prog');
-  const bar=document.getElementById('progBar');
-  btn.disabled=true;btn.textContent='⏳ Elaborazione...';
-  prog.style.display='block';bar.style.width='0%';
 
-  const newRecs=[];
+  // Show progress
+  const prog=document.getElementById('uniProg')||document.getElementById('prog');
+  const bar=document.getElementById('uniBar')||document.getElementById('progBar');
+  if(prog){prog.style.display='block';if(bar)bar.style.width='0%';}
+
+  const newLab=[];
+  const newRef=[];
+
   for(let i=0;i<pdfs.length;i++){
+    const file=pdfs[i];
+    if(bar)bar.style.width=`${((i+0.5)/pdfs.length)*100}%`;
     try{
-      const r=await parsePDF(pdfs[i]);
-      newRecs.push(r);
-      if(driveToken)uploadPdfToDrive(pdfs[i]);
-    }catch(e){toast(`Errore: ${pdfs[i].name}`,'err');}
-    bar.style.width=`${((i+1)/pdfs.length)*100}%`;
+      const tipo=await classifyPDF(file);
+      if(tipo==='lab'){
+        const r=await parsePDF(file);
+        newLab.push(r);
+        if(driveToken)uploadPdfToDrive(file);
+      } else {
+        // Read header for reparto detection
+        const ab=await file.arrayBuffer();
+        const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+        let headerText='';
+        let fullText='';
+        for(let p=1;p<=Math.min(pdf.numPages,3);p++){
+          const page=await pdf.getPage(p);
+          const tc=await page.getTextContent();
+          const byY={};
+          tc.items.forEach(item=>{
+            const y=Math.round(item.transform[5]);
+            if(!byY[y])byY[y]=[];
+            byY[y].push(item.str);
+          });
+          const lines=Object.entries(byY)
+            .sort((a,b)=>b[0]-a[0])
+            .map(([,words])=>words.join(' ').trim())
+            .filter(l=>l.length>0);
+          if(p===1)headerText=lines.slice(0,12).join('\n');
+          fullText+=lines.join('\n')+'\n';
+        }
+        const rep=detectReparto(file.name, headerText, fullText);
+        const date=detectDate(fullText);
+        const title=detectTitle(fullText,rep.name);
+        const b64=await fileToBase64(file);
+        const rec={
+          id:Date.now()+Math.random(),
+          filename: makeRefertoFilename(date, title),
+          originalFilename: file.name,
+          reparto:rep.name,
+          repartoIcon:rep.icon,
+          date,title,
+          pdfData:b64
+        };
+        if(!referti.find(r=>r.originalFilename===file.name)){
+          newRef.push(rec);
+          if(driveToken&&gapiReady)uploadRefertoDrive(file,rep.name,rec);
+        }
+      }
+    }catch(e){console.error(e);toast(`Errore: ${file.name}`,'err');}
+    if(bar)bar.style.width=`${((i+1)/pdfs.length)*100}%`;
   }
 
-  if(newRecs.length){
-    // Merge same-date records (e.g. Romagna + Parma same day)
-    for(const nr of newRecs){
+  // Save lab records
+  if(newLab.length){
+    for(const nr of newLab){
       const existing=records.find(r=>r.date===nr.date);
       if(existing){
-        // Merge params: existing record wins on conflict
         for(const [k,v] of Object.entries(nr.params)){
-          if(!existing.params[k]) existing.params[k]=v;
+          if(!existing.params[k])existing.params[k]=v;
+        }
+        // Move PDF cache from new record id to existing record id
+        if(_pdfCache[String(nr.id)]){
+          _pdfCache[String(existing.id)]=_pdfCache[String(nr.id)];
+          delete _pdfCache[String(nr.id)];
         }
       } else {
         records.push(nr);
       }
     }
     records.sort((a,b)=>sortDate(a.date).localeCompare(sortDate(b.date)));
-    // auto-select new params
-    newRecs.forEach(r=>Object.keys(r.params).forEach(p=>{if(!selected.includes(p))selected.push(p);}));
-    save();render();
-    toast(`${newRecs.length} analisi importata${newRecs.length>1?'e':''} ✓`,'ok');
+    newLab.forEach(r=>Object.keys(r.params).forEach(p=>{if(!selected.includes(p))selected.push(p);}));
+    save();
   }
 
-  btn.disabled=false;btn.textContent='+ Aggiungi PDF';document.getElementById('pdfInput').value='';
-  prog.style.display='none';
+  // Save referti
+  if(newRef.length){
+    referti.push(...newRef);
+    referti.sort((a,b)=>b.date.localeCompare(a.date));
+    saveReferti();
+  }
+
+  // Feedback
+  const parts=[];
+  if(newLab.length)parts.push(`📊 ${newLab.length} analisi`);
+  if(newRef.length)parts.push(`📋 ${newRef.length} referto/i (${[...new Set(newRef.map(r=>r.reparto))].join(', ')})`);
+
+  const uniResult=document.getElementById('uniResult');
+  if(uniResult){
+    uniResult.innerHTML=parts.length
+      ?`<span style="color:var(--green)">✓ Importati: ${parts.join(' · ')}</span>`
+      :`<span style="color:var(--text3)">Nessun file nuovo importato</span>`;
+  }
+  if(parts.length)toast('Caricati: '+parts.join(' + ')+' ✓','ok');
+
+  render();
+  if(newRef.length)renderReferti();
+  updateHomeBadges();
+  if(newRef.length&&currentPage==='home'){
+    setTimeout(()=>toast('📋 Vai in "Referti" per visualizzarli','ok'),800);
+  }
+
+  if(prog)prog.style.display='none';
+  // inputs reset inline via onchange
 }
 
 // ── GOOGLE DRIVE ─────────────────────────────────────────────────────────────
@@ -867,19 +1241,48 @@ let driveDbId=localStorage.getItem('mc_ddb')||null;
 let gapiReady=false;
 
 function initGapi(){
-  if(typeof gapi==='undefined'||typeof google==='undefined'){setTimeout(initGapi,800);return;}
+  if(typeof gapi==='undefined'||typeof google==='undefined'){
+    setTimeout(initGapi,500);
+    return;
+  }
   gapi.load('client',async function(){
-    await gapi.client.init({});
-    await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
-    gapiReady=true;
-    var saved=localStorage.getItem('mc_dtoken');
-    if(saved){driveToken=JSON.parse(saved);gapi.client.setToken(driveToken);updateDriveUI(true);}
+    try{
+      await gapi.client.init({});
+      await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+      gapiReady=true;
+      var btn=document.getElementById('driveBtn');
+      if(btn){btn.textContent='Drive';btn.title='Connetti Google Drive';}
+      var saved=localStorage.getItem('mc_dtoken');
+      if(saved){
+        try{driveToken=JSON.parse(saved);gapi.client.setToken(driveToken);updateDriveUI(true);}
+        catch(e){localStorage.removeItem('mc_dtoken');}
+      }
+    }catch(e){
+      console.error('initGapi error',e);
+      var btn=document.getElementById('driveBtn');
+      if(btn){btn.title='Drive non disponibile da file:// — usa GitHub Pages';}
+      setTimeout(initGapi,2000);
+    }
   });
 }
-window.addEventListener('load',function(){setTimeout(initGapi,1200);});
+window.addEventListener('load',function(){setTimeout(initGapi,800);});
 
 function toggleDrive(){
-  if(driveToken){disconnectDrive();}else{connectDrive();}
+  if(driveToken){disconnectDrive();return;}
+  if(!gapiReady){
+    toast('Inizializzazione API Google…','ok');
+    let attempts=0;
+    const wait=setInterval(()=>{
+      attempts++;
+      if(gapiReady){clearInterval(wait);connectDrive();}
+      else if(attempts>15){
+        clearInterval(wait);
+        toast('Google Drive richiede una connessione web. Carica il file su GitHub Pages per abilitarlo.','err');
+      }
+    },500);
+    return;
+  }
+  connectDrive();
 }
 
 function connectDrive(){
@@ -1217,6 +1620,7 @@ function renderRecords(){
     const paramKeys=Object.keys(r.params);
     const shown=paramKeys.slice(0,7);
     const extra=paramKeys.length-7;
+    const hasPdf=!!_pdfCache[String(r.id)];
     return`<div class="card">
       <div class="card-date">${fmtDate(r.date)}</div>
       <div class="card-name">${r.filename}</div>
@@ -1227,6 +1631,8 @@ function renderRecords(){
       </div>
       ${alerts.length?`<div class="card-warn">⚠ ${alerts.length} parametr${alerts.length===1?'o':'i'} fuori range</div>`:''}
       <div class="card-foot">
+        ${hasPdf?`<button class="btn btn-outline btn-sm" onclick="openLabPdf('${r.id}')">👁 PDF</button>`:''}
+        <button class="btn btn-outline btn-sm" onclick="emailLabRec('${r.id}')">✉</button>
         <button class="btn btn-red btn-sm" style="flex:1" onclick="deleteRec('${r.id}')">🗑 Rimuovi</button>
       </div>
     </div>`;
@@ -1563,12 +1969,66 @@ function var_bg(){return'#0a0c10';}
 // ── ACTIONS ───────────────────────────────────────────────────────────────────
 function deleteRec(id){
   records=records.filter(r=>String(r.id)!==String(id));
+  delete _pdfCache[String(id)];
   save();render();
   toast('Analisi rimossa','ok');
 }
+
+function openLabPdf(id){
+  const pdfData=_pdfCache[String(id)];
+  console.log('openLabPdf id='+String(id)+' found='+(!!pdfData)+' keys='+Object.keys(_pdfCache).join(','));
+  if(!pdfData){toast('PDF non disponibile — ricarica il file','err');return;}
+  const rec=records.find(r=>String(r.id)===String(id));
+  // Reuse the referto PDF viewer modal
+  _currentPdfRec={pdfData, filename: rec?rec.filename:'analisi.pdf', title:'', date:'', reparto:''};
+  document.getElementById('pdfModalTitle').textContent=rec?rec.filename:'Analisi';
+  document.getElementById('pdfOverlay').style.display='block';
+  document.getElementById('pdfModal').style.display='flex';
+  document.getElementById('pdfPages').innerHTML='<div style="color:var(--text2);padding:40px;text-align:center">⟳ Caricamento…</div>';
+  // Render pages
+  (async()=>{
+    try{
+      const base64=pdfData.split(',')[1];
+      const binary=atob(base64);
+      const bytes=new Uint8Array(binary.length);
+      for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+      const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+      const pages=document.getElementById('pdfPages');
+      pages.innerHTML='';
+      for(let p=1;p<=pdf.numPages;p++){
+        const page=await pdf.getPage(p);
+        const vp=page.getViewport({scale:1.6});
+        const canvas=document.createElement('canvas');
+        canvas.className='pdf-page-canvas';
+        canvas.width=vp.width;canvas.height=vp.height;
+        pages.appendChild(canvas);
+        await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+      }
+    }catch(e){document.getElementById('pdfPages').innerHTML='<div style="color:var(--red);padding:40px;text-align:center">Errore rendering PDF</div>';}
+  })();
+}
+
+function emailLabRec(id){
+  const rec=records.find(r=>String(r.id)===String(id));
+  if(!rec)return;
+  const params=Object.entries(rec.params)
+    .map(([k,v])=>`${k}: ${v.value}${v.unit?' '+v.unit:''}`)
+    .join('\n');
+  const alerts=Object.entries(rec.params)
+    .filter(([,v])=>status(v.value,v.min,v.max)!=='ok')
+    .map(([k,v])=>`⚠ ${k}: ${v.value} (${status(v.value,v.min,v.max)==='high'?'Alto':'Basso'})`)
+    .join('\n');
+  const subject=encodeURIComponent(`Analisi del sangue — ${fmtDate(rec.date)}`);
+  const body=encodeURIComponent(
+    `Analisi del ${fmtDate(rec.date)}\n\n`+
+    (alerts?`VALORI FUORI RANGE:\n${alerts}\n\n`:'')+
+    `TUTTI I VALORI:\n${params}`
+  );
+  window.open(`mailto:?subject=${subject}&body=${body}`,'_blank');
+}
 function clearAll(){
   if(!confirm('Eliminare tutte le analisi salvate?'))return;
-  records=[];selected=[];save();render();document.getElementById('pdfInput').value='';
+  records=[];selected=[];save();render();// inputs reset inline via onchange
   toast('Dati cancellati','ok');
 }
 function toggleParam(p){
@@ -1613,8 +2073,8 @@ async function showParamInfo(paramName){
   document.getElementById('infoTitle').textContent=paramName;
   document.getElementById('infoLoading').style.display='none';
   document.getElementById('infoContent').style.display='none';
-  document.getElementById('infoOverlay').style.display='';
-  document.getElementById('infoModal').style.display='';
+  document.getElementById('infoOverlay').style.display='block';
+  document.getElementById('infoModal').style.display='block';
 
   if(_infoCache[paramName]){renderInfoContent(_infoCache[paramName],val);return;}
 
@@ -1790,10 +2250,394 @@ function toast(msg,type='ok'){
   setTimeout(()=>d.remove(),4000);
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
-render();
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+let currentPage='home';
+
+function goHome(){
+  showPage('home');
+  updateHomeBadges();
+}
+
+function goTo(page){
+  showPage(page);
+  if(page==='referti')renderReferti();
+}
+
+function showPage(page){
+  currentPage=page;
+  document.querySelectorAll('.page-section').forEach(el=>el.classList.remove('active'));
+  const map={home:'pageHome',analisi:'pageAnalisi',referti:'pageReferti'};
+  const el=document.getElementById(map[page]);
+  if(el)el.classList.add('active');
+  document.getElementById('backHomeBtn').style.display=page==='home'?'none':'';
+  // Move driveBar: on home it's inside home-page, on other pages show in header area
+  const driveBar=document.getElementById('driveBar');
+  if(page==='home'){
+    driveBar.style.display=driveBar._wasConnected?'flex':'none';
+  }
+}
+
+function updateHomeBadges(){
+  document.getElementById('homeBadgeAnalisi').textContent=records.length+' analisi';
+  document.getElementById('homeBadgeReferti').textContent=referti.length+' referti';
+}
+
+// ── REFERTI DATA ──────────────────────────────────────────────────────────────
+// Each referto: {id, filename, reparto, date, title, driveFileId, pdfData(base64)}
+let referti=(()=>{
+  try{const r=localStorage.getItem('mc_referti');return r?JSON.parse(r):[];}catch(e){return[];}
+})();
+
+function saveReferti(){
+  try{
+    // Save metadata only (no pdfData) to localStorage
+    const meta=referti.map(r=>({id:r.id,filename:r.filename,reparto:r.reparto,date:r.date,title:r.title,driveFileId:r.driveFileId||''}));
+    localStorage.setItem('mc_referti',JSON.stringify(meta));
+  }catch(e){console.error('saveReferti',e);}
+}
+
+// Reparto detection from PDF text
+const REPARTO_MAP=[
+  {rx:/cardiolog/i,             name:'Cardiologia',         icon:'❤️'},
+  {rx:/nefrol/i,                name:'Nefrologia',           icon:'🫘'},
+  {rx:/gastroenter/i,           name:'Gastroenterologia',    icon:'🫃'},
+  {rx:/radiolog|radiodiagn/i,   name:'Radiologia',           icon:'🔬'},
+  {rx:/risonanza magn|\bRM\b/i, name:'Risonanza Magnetica',  icon:'🧲'},
+  {rx:/\bTAC\b|tomografia assiale/i,name:'TAC',             icon:'💿'},
+  {rx:/ecograf|ecodoppler|ecocardio/i,name:'Ecografia',     icon:'📡'},
+  {rx:/pneumolog/i,             name:'Pneumologia',          icon:'🫁'},
+  {rx:/endocrinolog/i,          name:'Endocrinologia',       icon:'⚗️'},
+  {rx:/ortoped/i,               name:'Ortopedia',            icon:'🦴'},
+  {rx:/oculist|oftalmolog/i,    name:'Oculistica',           icon:'👁️'},
+  {rx:/neurolog/i,              name:'Neurologia',           icon:'🧠'},
+  {rx:/dermatolog/i,            name:'Dermatologia',         icon:'🩹'},
+  {rx:/urolog/i,                name:'Urologia',             icon:'🫀'},
+  {rx:/oncolog/i,               name:'Oncologia',            icon:'🎗️'},
+  {rx:/chirurg/i,               name:'Chirurgia',            icon:'🔪'},
+  {rx:/laborator|analisi/i,     name:'Laboratorio',          icon:'🧪'},
+];
+
+function detectReparto(filename, headerText, fullText){
+  // ── LIVELLO 1: prime righe dell'intestazione (U.O. XXXX pattern) ─────────
+  // Questo è il pattern più affidabile — tutti i referti SSN hanno "U.O. NOME"
+  const lines=headerText.split('\n').slice(0,15);
+  for(const line of lines){
+    // Cerca "U.O." oppure "U.O.C." oppure "REPARTO" ecc. seguito dal nome
+    const m=line.match(/(?:U\.O\.(?:C\.|S\.|D\.|M\.)?\s*|REPARTO\s+|STRUTTURA\s+|DIVISIONE\s+)(.+)/i);
+    if(m){
+      const unitName=m[1].trim();
+      for(const entry of REPARTO_MAP){
+        if(entry.rx.test(unitName))return{name:entry.name,icon:entry.icon};
+      }
+    }
+    // Match diretto su righe dell'header (es. "NEFROLOGIA E DIALISI" senza prefisso)
+    for(const entry of REPARTO_MAP){
+      if(entry.rx.test(line))return{name:entry.name,icon:entry.icon};
+    }
+  }
+
+  // ── LIVELLO 2: titolo esame (es. "ECG + VISITA CARDIOLOGICA") ────────────
+  const examTitle=fullText.match(/^([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ0-9\s\+\/\-]{4,80})$/m);
+  if(examTitle){
+    for(const entry of REPARTO_MAP){
+      if(entry.rx.test(examTitle[1]))return{name:entry.name,icon:entry.icon};
+    }
+  }
+
+  // ── LIVELLO 3: punteggio primi 800 caratteri (non testo intero!) ──────────
+  const shortText=fullText.slice(0,800)
+    .replace(/riferiment\w+|referent\w+|trasfer\w+/gi,' ');
+  const scores={};
+  for(const entry of REPARTO_MAP){
+    const hits=(shortText.match(new RegExp(entry.rx.source,'gi'))||[]).length;
+    if(hits>0)scores[entry.name]=hits;
+  }
+  if(Object.keys(scores).length){
+    const best=Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0];
+    const found=REPARTO_MAP.find(m=>m.name===best);
+    if(found)return{name:found.name,icon:found.icon};
+  }
+
+  return{name:'Altro',icon:'📄'};
+}
+
+function detectDate(text){
+  // Priority 1: "Prelievo: DD/MM/YYYY"
+  const mp=text.match(/prelievo[:\s]+(\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4})/i);
+  if(mp)return normalizeDate(mp[1]);
+  // Priority 2: "Data esame/visita/referto DD/MM/YYYY"
+  const m1=text.match(/data\s+(?:esame|referto|visita)[:\s]+(\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4})/i);
+  if(m1)return normalizeDate(m1[1]);
+  // Fallback: first date in header (first 500 chars)
+  const head=text.slice(0,500);
+  const m2=head.match(/(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/);
+  if(m2)return`${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
+  return new Date().toISOString().slice(0,10);
+}
+
+function normalizeDate(s){
+  const p=s.split(/[\/\.\-]/);
+  if(p.length===3){
+    const y=p[2].length===2?'20'+p[2]:p[2];
+    return`${y}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+  }
+  return new Date().toISOString().slice(0,10);
+}
+
+function detectTitle(text,reparto){
+  // Look for exam type line
+  const m=text.match(/^([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s\+\/]{4,60})$/m);
+  if(m)return m[1].trim();
+  return'Referto '+reparto;
+}
+
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ── DRIVE: upload referto to reparto subfolder ────────────────────────────────
+async function uploadRefertoDrive(file,repartoName,rec){
+  try{
+    if(!await ensureValidToken())return;
+    await ensureFolder();
+    const subId=await getOrCreateSubfolder(repartoName);
+    const displayName=rec.filename||file.name;
+    const exists=await gapi.client.drive.files.list({
+      q:`name='${displayName}' and '${subId}' in parents and trashed=false`,
+      fields:'files(id)'
+    });
+    if(exists.result.files.length>0){rec.driveFileId=exists.result.files[0].id;saveReferti();return;}
+    const form=new FormData();
+    const meta={name:displayName,parents:[subId]};
+    form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+    form.append('file',file);
+    const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',headers:{'Authorization':'Bearer '+driveToken.access_token},body:form
+    });
+    const data=await resp.json();
+    if(data.id){rec.driveFileId=data.id;saveReferti();toast('📂 Salvato in Drive/'+repartoName,'ok');}
+  }catch(e){console.error('uploadRefertoDrive',e);}
+}
+
+async function getOrCreateSubfolder(name){
+  // Check cache
+  if(!window._subfolderCache)window._subfolderCache={};
+  if(window._subfolderCache[name])return window._subfolderCache[name];
+  // Search
+  const res=await gapi.client.drive.files.list({
+    q:`name='${name}' and '${driveFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields:'files(id)'
+  });
+  if(res.result.files.length>0){
+    window._subfolderCache[name]=res.result.files[0].id;
+    return res.result.files[0].id;
+  }
+  // Create
+  const r=await gapi.client.drive.files.create({
+    resource:{name,mimeType:'application/vnd.google-apps.folder',parents:[driveFolderId]},
+    fields:'id'
+  });
+  window._subfolderCache[name]=r.result.id;
+  return r.result.id;
+}
+
+// ── RENDER REFERTI ────────────────────────────────────────────────────────────
+function renderReferti(){
+  const q=(document.getElementById('refSearch')||{value:''}).value.toLowerCase();
+  const filterRep=(document.getElementById('refFilter')||{value:''}).value;
+
+  // Update filter dropdown
+  const reparti=[...new Set(referti.map(r=>r.reparto))].sort();
+  const sel=document.getElementById('refFilter');
+  const prev=sel.value;
+  sel.innerHTML='<option value="">Tutti i reparti</option>'+reparti.map(r=>`<option value="${r}">${r}</option>`).join('');
+  if(reparti.includes(prev))sel.value=prev;
+
+  let filtered=referti.filter(r=>{
+    if(filterRep&&r.reparto!==filterRep)return false;
+    if(q&&!( r.filename.toLowerCase().includes(q)||r.reparto.toLowerCase().includes(q)||r.title.toLowerCase().includes(q)||r.date.includes(q)))return false;
+    return true;
+  });
+
+  const list=document.getElementById('refList');
+  const empty=document.getElementById('refEmpty');
+
+  if(!filtered.length){
+    list.innerHTML='';
+    empty.style.display=referti.length?'':'';
+    return;
+  }
+  empty.style.display='none';
+
+  // Group by reparto
+  const byRep={};
+  filtered.forEach(r=>{if(!byRep[r.reparto])byRep[r.reparto]=[];byRep[r.reparto].push(r);});
+
+  list.innerHTML=Object.entries(byRep).map(([rep,items])=>{
+    const icon=REPARTO_MAP.find(m=>m.name===rep)?.icon||'📄';
+    const cards=items.map(r=>`
+      <div class="ref-card" onclick="openPdfViewer('${r.id}')">
+        <div class="ref-card-top">
+          <span class="ref-reparto">${icon} ${r.reparto}</span>
+          <span class="ref-date">${fmtDate(r.date)}</span>
+        </div>
+        <div class="ref-title">${r.title.slice(0,60)}</div>
+        <div class="ref-subtitle">${r.filename}</div>
+        <div class="ref-card-foot">
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openPdfViewer('${r.id}')">👁 Visualizza</button>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();emailRefertoById('${r.id}')">✉ Email</button>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();changeReparto('${r.id}')" title="Cambia reparto">✏️</button>
+          <button class="btn btn-red btn-sm" onclick="event.stopPropagation();deleteReferto('${r.id}')">🗑</button>
+        </div>
+      </div>`).join('');
+    return`<div class="ref-section">
+      <div class="ref-section-head">
+        <span class="ref-section-icon">${icon}</span>
+        <span class="ref-section-title">${rep}</span>
+        <span class="ref-section-count">${items.length}</span>
+      </div>
+      <div class="ref-grid">${cards}</div>
+    </div>`;
+  }).join('');
+}
+
+function changeReparto(id){
+  const rec=referti.find(r=>String(r.id)===String(id));
+  if(!rec)return;
+  const reparti=REPARTO_MAP.map(m=>m.name).concat(['Altro']);
+  const current=rec.reparto;
+  // Build a quick select dialog
+  const chosen=prompt(
+    `Reparto attuale: "${current}"\n\nScegli il reparto corretto (digita il numero):\n`+
+    reparti.map((r,i)=>`${i+1}. ${r}`).join('\n'),
+    String(reparti.indexOf(current)+1||1)
+  );
+  if(chosen===null)return;
+  const idx=parseInt(chosen)-1;
+  if(idx>=0&&idx<reparti.length){
+    rec.reparto=reparti[idx];
+    const found=REPARTO_MAP.find(m=>m.name===reparti[idx]);
+    rec.repartoIcon=found?found.icon:'📄';
+    saveReferti();
+    renderReferti();
+    toast('Reparto aggiornato: '+rec.reparto,'ok');
+  }
+}
+
+function deleteReferto(id){
+  if(!confirm('Rimuovere questo referto?'))return;
+  referti=referti.filter(r=>String(r.id)!==String(id));
+  saveReferti();renderReferti();updateHomeBadges();
+}
+
+function clearAllReferti(){
+  if(!confirm('Eliminare tutti i referti salvati?'))return;
+  referti=[];saveReferti();renderReferti();updateHomeBadges();
+  toast('Referti cancellati','ok');
+}
+
+function openPdfInTab(){
+  if(!_currentPdfRec?.pdfData)return;
+  const w=window.open();
+  if(w){
+    w.document.write(`<html><head><title>${_currentPdfRec.filename}</title></head>
+    <body style="margin:0"><embed src="${_currentPdfRec.pdfData}" width="100%" height="100%" type="application/pdf"/></body></html>`);
+    w.document.close();
+  }
+}
+
+// ── PDF VIEWER ────────────────────────────────────────────────────────────────
+let _currentPdfRec=null;
+
+async function openPdfViewer(id){
+  const rec=referti.find(r=>String(r.id)===String(id));
+  if(!rec){toast('PDF non trovato','err');return;}
+  _currentPdfRec=rec;
+  document.getElementById('pdfModalTitle').textContent=rec.filename;
+  document.getElementById('pdfOverlay').style.display='block';
+  document.getElementById('pdfModal').style.display='flex';
+  document.getElementById('pdfPages').innerHTML='<div style="color:var(--text2);padding:40px;text-align:center">⟳ Caricamento PDF…</div>';
+
+  if(!rec.pdfData){
+    // Try to reload from Drive if we have fileId
+    if(rec.driveFileId&&driveToken){
+      try{
+        const resp=await fetch(`https://www.googleapis.com/drive/v3/files/${rec.driveFileId}?alt=media`,{
+          headers:{'Authorization':'Bearer '+driveToken.access_token}
+        });
+        const blob=await resp.blob();
+        rec.pdfData=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(blob);});
+      }catch(e){
+        document.getElementById('pdfPages').innerHTML='<div style="color:var(--red);padding:40px;text-align:center">PDF non disponibile localmente.<br>Ricarica il file.</div>';
+        return;
+      }
+    } else {
+      document.getElementById('pdfPages').innerHTML='<div style="color:var(--red);padding:40px;text-align:center">PDF non disponibile. Ricarica il file.</div>';
+      return;
+    }
+  }
+
+  try{
+    const base64=rec.pdfData.split(',')[1];
+    const binary=atob(base64);
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+    const pages=document.getElementById('pdfPages');
+    pages.innerHTML='';
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p);
+      const vp=page.getViewport({scale:1.6});
+      const canvas=document.createElement('canvas');
+      canvas.className='pdf-page-canvas';
+      canvas.width=vp.width;canvas.height=vp.height;
+      pages.appendChild(canvas);
+      await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+    }
+  }catch(e){document.getElementById('pdfPages').innerHTML='<div style="color:var(--red);padding:40px;text-align:center">Errore rendering PDF</div>';}
+}
+
+function closePdfViewer(){
+  document.getElementById('pdfOverlay').style.display='none';
+  document.getElementById('pdfModal').style.display='none';
+  _currentPdfRec=null;
+}
+
+function downloadCurrentPdf(){
+  if(!_currentPdfRec?.pdfData)return;
+  const a=document.createElement('a');
+  a.href=_currentPdfRec.pdfData;
+  a.download=_currentPdfRec.filename;
+  a.click();
+}
+
+function emailReferto(){if(_currentPdfRec)_doEmail(_currentPdfRec);}
+function emailRefertoById(id){const r=referti.find(x=>String(x.id)===String(id));if(r)_doEmail(r);}
+function _doEmail(rec){
+  const subject=encodeURIComponent(`Referto: ${rec.title} — ${fmtDate(rec.date)}`);
+  const body=encodeURIComponent(`In allegato il referto: ${rec.filename}\nData: ${fmtDate(rec.date)}\nReparto: ${rec.reparto}`);
+  window.open(`mailto:?subject=${subject}&body=${body}`,'_blank');
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeInfoModal();closePdfViewer();}
+});
 window.addEventListener('resize',()=>{
-  if(selected.length)selected.forEach(p=>drawSVGChart(p));
+  if(currentPage==='analisi'&&selected.length)selected.forEach(p=>drawSVGChart(p));
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+showPage('home');
+updateHomeBadges();
+render();
+
+window.addEventListener('resize',()=>{
+  if(currentPage==='analisi'&&selected.length)selected.forEach(p=>drawSVGChart(p));
 });
 </script>
 </body>
