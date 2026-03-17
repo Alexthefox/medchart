@@ -1132,7 +1132,7 @@ async function handleFiles(files){
       if(tipo==='lab'){
         const r=await parsePDF(file);
         newLab.push(r);
-        if(driveToken)uploadPdfToDrive(file);
+        if(driveToken)uploadPdfToDrive(file, r.filename);
       } else {
         // Read header for reparto detection
         const ab=await file.arrayBuffer();
@@ -1462,17 +1462,19 @@ async function syncToDrive(){
   }
 }
 
-async function uploadPdfToDrive(file){
+async function uploadPdfToDrive(file, displayName){
   if(!driveToken||!gapiReady)return;
   try{
     await ensureFolder();
+    const subId=await getOrCreateSubfolder('Analisi');
+    const fname=displayName||file.name;
     var res=await gapi.client.drive.files.list({
-      q:"name='"+file.name+"' and '"+driveFolderId+"' in parents and trashed=false",
+      q:"name='"+fname+"' and '"+subId+"' in parents and trashed=false",
       fields:'files(id)'
     });
     if(res.result.files.length>0)return;
     var form=new FormData();
-    var meta={name:file.name,parents:[driveFolderId]};
+    var meta={name:fname,parents:[subId]};
     form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
     form.append('file',file);
     await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
