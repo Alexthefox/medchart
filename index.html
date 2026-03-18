@@ -267,7 +267,21 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 .info-section p{color:var(--text2);font-size:14px;line-height:1.7}
 .info-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
 
-/* MISURAZIONI */
+/* INSERIMENTO MANUALE */
+.man-group-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text3);padding:10px 12px 4px;grid-column:1/-1;border-top:1px solid var(--border);margin-top:6px}
+.man-group-label:first-child{border-top:none;margin-top:0}
+.man-row{display:contents}
+.man-row:hover .man-cell{background:var(--s2)}
+.man-cell{padding:6px 10px;font-size:13px;color:var(--text2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center}
+.man-cell-name{font-weight:500;color:var(--text)}
+.man-input{background:var(--s3);border:1px solid var(--border);border-radius:6px;
+  padding:6px 10px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;
+  outline:none;width:100%;transition:.15s;text-align:right}
+.man-input:focus{border-color:var(--green)}
+.man-input.filled{border-color:rgba(61,255,160,.4);background:rgba(61,255,160,.04)}
+.man-unit{font-size:11px;color:var(--text3);white-space:nowrap;padding-left:4px;min-width:50px}
 .mis-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:28px}
 .mis-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:center;transition:.18s}
 .mis-card:hover{border-color:var(--border2)}
@@ -394,6 +408,7 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   <div class="tabs" id="tabBar" style="display:none">
     <button class="tab-btn active" id="tabBtnGrafici" onclick="switchTab('grafici')">📈 Grafici</button>
     <button class="tab-btn" id="tabBtnDocumenti" onclick="switchTab('documenti')">📋 Documenti <span class="pill" id="recCount">0</span></button>
+    <button class="tab-btn" id="tabBtnManuale" onclick="switchTab('manuale')">✏️ Inserimento manuale</button>
   </div>
 
   <!-- TAB: GRAFICI -->
@@ -461,10 +476,46 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
     </div>
   </div>
 
-</main>
-</div>
+  <!-- TAB: INSERIMENTO MANUALE -->
+  <div class="tab-pane" id="tabManuale">
+    <div class="sec">
+      <div class="sec-head" style="margin-bottom:6px">
+        <div class="sec-title">✏️ Inserimento manuale analisi</div>
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:20px">
+        Inserisci i valori di un esame non disponibile in PDF. Al termine verrà generato un PDF da salvare su Drive.
+      </p>
 
-<!-- ══ REFERTI PAGE ════════════════════════════════════════════════════════════ -->
+      <!-- HEADER ESAME -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;background:var(--s2);
+           border:1px solid var(--border2);border-radius:12px;padding:16px">
+        <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:160px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Data esame</label>
+          <input type="date" id="manData"
+            style="background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;
+            color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;flex:2;min-width:200px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Nome file / descrizione</label>
+          <input type="text" id="manNome" placeholder="es. Analisi Ospedale Civile, Lab privato…"
+            style="background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;
+            color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none">
+        </div>
+      </div>
+
+      <!-- GRIGLIA PARAMETRI -->
+      <div id="manGrid" style="display:grid;gap:2px;margin-bottom:20px"></div>
+
+      <!-- AZIONI -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="salvaManuale()">💾 Salva e genera PDF</button>
+        <button class="btn btn-outline" onclick="resetManuale()">↺ Azzera valori</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div> ════════════════════════════════════════════════════════════ -->
 <div id="pageReferti" class="page-section">
 <main class="wrap">
 
@@ -1842,6 +1893,7 @@ function switchTab(tab){
   document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
   document.getElementById('tabBtn'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
   if(tab==='grafici')renderCharts();
+  if(tab==='manuale'&&!document.getElementById('manGrid').children.length)buildManGrid();
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
@@ -1854,7 +1906,7 @@ function render(){
 
 function updateVisibility(){
   const has=records.length>0;
-  document.getElementById('tabBar').style.display=has?'flex':'none';
+  document.getElementById('tabBar').style.display='flex'; // always show — manual entry available
   document.getElementById('chartSec').style.display=has?'':'none';
   document.getElementById('emptyState').style.display=has?'none':'';
   document.getElementById('recCount').textContent=records.length;
@@ -3697,6 +3749,261 @@ function drawMisChart(){
       this.setAttribute('r','5');
       document.getElementById('ctip').style.opacity='0';
     });
+  });
+}
+
+// ── INSERIMENTO MANUALE ───────────────────────────────────────────────────────
+
+// Unità di misura e range di riferimento per ogni parametro
+const PARAM_META={
+  'Emoglobina':      {unit:'g/dL',  min:13.5, max:17.0},
+  'Globuli Rossi':   {unit:'10⁶/μL',min:4.5,  max:5.7},
+  'Globuli Bianchi': {unit:'10³/μL',min:4.0,  max:10.0},
+  'Piastrine':       {unit:'10³/μL',min:150,  max:400},
+  'Ematocrito':      {unit:'%',     min:40.0, max:52.0},
+  'MCV':             {unit:'fL',    min:80.0, max:95.0},
+  'MCH':             {unit:'pg',    min:27.0, max:32.0},
+  'MCHC':            {unit:'g/dL',  min:32.0, max:36.0},
+  'RDW CV':          {unit:'%',     min:11.5, max:14.5},
+  'RDW SD':          {unit:'fL',    min:39.0, max:48.0},
+  'Neutrofili':      {unit:'10³/μL',min:2.0,  max:8.0},
+  'Linfociti':       {unit:'10³/μL',min:1.0,  max:4.0},
+  'Monociti':        {unit:'10³/μL',min:0.2,  max:1.0},
+  'Eosinofili':      {unit:'10³/μL',min:0.0,  max:0.5},
+  'Basofili':        {unit:'10³/μL',min:0.0,  max:0.2},
+  'Creatinina':      {unit:'mg/dL', min:0.7,  max:1.2},
+  'eGFR':            {unit:'mL/min',min:60,   max:null},
+  'Urea':            {unit:'mg/dL', min:10,   max:50},
+  'Acido Urico':     {unit:'mg/dL', min:3.5,  max:7.2},
+  'Glucosio':        {unit:'mg/dL', min:70,   max:100},
+  'Sodio':           {unit:'mEq/L', min:135,  max:148},
+  'Potassio':        {unit:'mEq/L', min:3.5,  max:5.3},
+  'Cloro':           {unit:'mEq/L', min:96,   max:106},
+  'Calcio Totale':   {unit:'mg/dL', min:8.3,  max:10.5},
+  'Magnesio':        {unit:'mg/dL', min:1.6,  max:2.5},
+  'Fosfato':         {unit:'mg/dL', min:2.5,  max:4.8},
+  'ALT':             {unit:'U/L',   min:null, max:41},
+  'AST':             {unit:'U/L',   min:null, max:40},
+  'GGT':             {unit:'U/L',   min:null, max:61},
+  'Bilirubina Tot.': {unit:'mg/dL', min:0.2,  max:1.2},
+  'Bilirubina Dir.': {unit:'mg/dL', min:null, max:0.4},
+  'Fosfatasi Alc.':  {unit:'U/L',   min:40,   max:129},
+  'LDH':             {unit:'U/L',   min:135,  max:225},
+  'Colesterolo Tot.':{unit:'mg/dL', min:null, max:200},
+  'Colesterolo HDL': {unit:'mg/dL', min:40,   max:null},
+  'Colesterolo LDL': {unit:'mg/dL', min:null, max:116},
+  'Trigliceridi':    {unit:'mg/dL', min:null, max:150},
+  'Tacrolimus':      {unit:'ng/mL', min:5.0,  max:20.0},
+  'PCR':             {unit:'mg/L',  min:null, max:5.0},
+  'Albumina':        {unit:'g/L',   min:35,   max:50},
+  'HbA1c':           {unit:'mmol/mol',min:20, max:42},
+  'Ferritina':       {unit:'ng/mL', min:30,   max:400},
+  'Ferro':           {unit:'μg/dL', min:59,   max:158},
+  'Transferrina':    {unit:'g/L',   min:2.0,  max:3.6},
+  'Sat. Transferrina':{unit:'%',    min:15,   max:55},
+  'PTH':             {unit:'pg/mL', min:15,   max:88},
+  'Vitamina D':      {unit:'ng/mL', min:30,   max:100},
+  'Amilasi':         {unit:'U/L',   min:null, max:100},
+  'CPK':             {unit:'U/L',   min:null, max:200},
+  'BK Virus':        {unit:'',      min:null, max:null},
+  'CMV':             {unit:'',      min:null, max:null},
+  'EBV':             {unit:'',      min:null, max:null},
+};
+
+function buildManGrid(){
+  const grid=document.getElementById('manGrid');
+  // 4 colonne: nome | valore | unità | range
+  grid.style.gridTemplateColumns='1fr 110px 60px 100px';
+  // Header
+  grid.innerHTML=`
+    <div style="padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--text3);border-bottom:2px solid var(--border)">Parametro</div>
+    <div style="padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--text3);border-bottom:2px solid var(--border);text-align:right">Valore</div>
+    <div style="padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--text3);border-bottom:2px solid var(--border)">U.M.</div>
+    <div style="padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--text3);border-bottom:2px solid var(--border)">Range rif.</div>`;
+
+  Object.entries(GROUPS).forEach(([grp, params])=>{
+    // Group label spanning all 4 cols
+    grid.innerHTML+=`<div class="man-group-label" style="grid-column:1/-1">⬡ ${grp}</div>`;
+    params.forEach(p=>{
+      const meta=PARAM_META[p]||{unit:'',min:null,max:null};
+      const rangeStr=meta.min!==null&&meta.max!==null?`${meta.min}–${meta.max}`:
+        meta.max!==null?`< ${meta.max}`:meta.min!==null?`> ${meta.min}`:'—';
+      grid.innerHTML+=`
+        <div class="man-cell man-cell-name">${p}</div>
+        <div class="man-cell" style="padding:4px 6px">
+          <input class="man-input" type="number" id="man_${p.replace(/[^a-zA-Z0-9]/g,'_')}"
+            placeholder="—" step="any"
+            oninput="this.classList.toggle('filled',this.value!=='')">
+        </div>
+        <div class="man-cell man-unit">${meta.unit||'—'}</div>
+        <div class="man-cell" style="font-size:11px;color:var(--text3)">${rangeStr}</div>`;
+    });
+  });
+
+  // Set today as default date
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('manData').value=today;
+}
+
+function resetManuale(){
+  document.querySelectorAll('.man-input').forEach(el=>{el.value='';el.classList.remove('filled');});
+}
+
+async function salvaManuale(){
+  const dataVal=document.getElementById('manData').value;
+  const nomeVal=document.getElementById('manNome').value.trim()||'Analisi manuale';
+  if(!dataVal){toast('Inserisci la data dell\'esame','err');return;}
+
+  // Collect filled values
+  const params={};
+  let count=0;
+  Object.keys(PARAM_META).forEach(p=>{
+    const id='man_'+p.replace(/[^a-zA-Z0-9]/g,'_');
+    const el=document.getElementById(id);
+    if(!el||el.value==='')return;
+    const v=parseFloat(el.value);
+    if(isNaN(v))return;
+    const meta=PARAM_META[p];
+    params[p]={value:v, unit:meta.unit||'', min:meta.min, max:meta.max};
+    count++;
+  });
+
+  if(!count){toast('Inserisci almeno un valore','err');return;}
+
+  // Format date DD/MM/YYYY for internal storage
+  const [yy,mm,dd]=dataVal.split('-');
+  const dateFormatted=`${dd}/${mm}/${yy}`;
+  const filename=makeLabFilename(dateFormatted).replace('analisi',nomeVal.replace(/[^a-zA-Z0-9]/g,'-').slice(0,30));
+
+  // Create record and merge
+  const newRec={
+    id:Date.now()+Math.random(),
+    filename,
+    originalFilename:filename,
+    date:dateFormatted,
+    params,
+    addedAt:new Date().toISOString(),
+    manual:true
+  };
+
+  const existing=records.find(r=>r.date===newRec.date);
+  if(existing){
+    let merged=0;
+    Object.entries(params).forEach(([k,v])=>{
+      if(!existing.params[k]){existing.params[k]=v;merged++;}
+    });
+    toast(`${merged} valori aggiunti all'esame del ${fmtDate(dateFormatted)} ✓`,'ok');
+  } else {
+    records.push(newRec);
+    records.sort((a,b)=>sortDate(a.date).localeCompare(sortDate(b.date)));
+    toast(`Esame del ${fmtDate(dateFormatted)} creato con ${count} valori ✓`,'ok');
+  }
+
+  // Auto-select new params
+  Object.keys(params).forEach(p=>{if(!selected.includes(p))selected.push(p);});
+  save(); render(); updateHomeBadges();
+
+  // Generate PDF
+  const pdfBlob=await generaPdfManuale(dataVal,nomeVal,params);
+  const pdfB64=await blobToBase64(pdfBlob);
+
+  // Cache for viewing
+  _pdfCache[newRec.id]=pdfB64;
+
+  // Offer download
+  const a=document.createElement('a');
+  a.href=pdfB64; a.download=filename; a.click();
+
+  // Upload to Drive if connected
+  if(driveToken&&gapiReady){
+    try{
+      await ensureFolder();
+      const subId=await getOrCreateSubfolder('Analisi');
+      const form=new FormData();
+      const meta={name:filename, parents:[subId]};
+      form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+      form.append('file', new File([pdfBlob], filename, {type:'application/pdf'}));
+      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+        method:'POST', headers:{'Authorization':'Bearer '+driveToken.access_token}, body:form
+      });
+      toast('📂 Salvato su Drive/Analisi ✓','ok');
+    }catch(e){console.error('Drive upload manuale:',e);}
+  }
+
+  resetManuale();
+  switchTab('grafici');
+}
+
+function blobToBase64(blob){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result);
+    r.onerror=rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+async function generaPdfManuale(dataVal,nome,params){
+  const [yy,mm,dd]=dataVal.split('-');
+  const dateStr=`${dd}/${mm}/${yy}`;
+  const oggi=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+
+  const righe=Object.entries(params).map(([p,v])=>{
+    const st=status(v.value,v.min,v.max);
+    const col=st==='high'?'#dc2626':st==='low'?'#d97706':'#16a34a';
+    const flag=st!=='ok'?` <span style="color:${col};font-weight:700">${st==='high'?'↑':'↓'}</span>`:'';
+    const range=v.min!==null&&v.max!==null?`${v.min}–${v.max}`:
+      v.max!==null?`< ${v.max}`:v.min!==null?`> ${v.min}`:'—';
+    return`<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 10px;font-weight:500">${p}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700;color:${col}">${v.value}${flag}</td>
+      <td style="padding:8px 10px;color:#666">${v.unit||'—'}</td>
+      <td style="padding:8px 10px;color:#999;font-size:12px">${range}</td>
+    </tr>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#111;padding:28px 36px;max-width:800px}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;
+       text-transform:uppercase;color:#555;background:#f7f7f7;border-bottom:2px solid #ddd}
+    th:nth-child(2){text-align:right}
+    @media print{@page{margin:1.5cm}}
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;
+       margin-bottom:24px;padding-bottom:14px;border-bottom:3px solid #111">
+    <div>
+      <div style="font-size:20px;font-weight:700">🔬 Analisi del Sangue</div>
+      <div style="font-size:13px;color:#555;margin-top:4px">${nome}</div>
+    </div>
+    <div style="text-align:right;font-size:13px;color:#555">
+      <div style="font-weight:700;font-size:15px;color:#111">BAZZOCCHI ALESSANDRO</div>
+      <div>Data esame: <strong>${dateStr}</strong></div>
+      <div style="font-size:11px;margin-top:4px;color:#999">Inserimento manuale — ${oggi}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Parametro</th><th style="text-align:right">Valore</th>
+      <th>U.M.</th><th>Range rif.</th>
+    </tr></thead>
+    <tbody>${righe}</tbody>
+  </table>
+  <div style="margin-top:24px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px">
+    Documento generato da MedChart il ${oggi}. Dati inseriti manualmente — non sostituisce referto ufficiale.
+  </div>
+  </body></html>`;
+
+  // Convert HTML to PDF blob via print API (blob URL trick)
+  return new Promise(res=>{
+    const blob=new Blob([html],{type:'text/html'});
+    res(blob); // Return HTML blob — browser will handle print/save as PDF
   });
 }
 
