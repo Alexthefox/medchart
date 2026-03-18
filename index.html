@@ -266,7 +266,27 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 .info-section h4{font-family:'Lora',serif;font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .info-section p{color:var(--text2);font-size:14px;line-height:1.7}
 .info-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
-</style>
+
+/* MISURAZIONI */
+.mis-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:28px}
+.mis-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:center;transition:.18s}
+.mis-card:hover{border-color:var(--border2)}
+.mis-card-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.mis-card-val{font-family:'Lora',serif;font-size:28px;font-weight:600}
+.mis-card-unit{font-size:11px;color:var(--text3);margin-top:2px}
+.mis-form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:16px;margin-bottom:20px}
+.mis-input{background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;outline:none;width:90px;text-align:center;transition:.18s}
+.mis-input:focus{border-color:var(--blue)}
+.mis-input-wrap{display:flex;flex-direction:column;gap:4px;align-items:center}
+.mis-input-wrap label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.mis-table{width:100%;border-collapse:collapse;font-size:13px}
+.mis-table th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)}
+.mis-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text2)}
+.mis-table tr:hover td{background:var(--s2)}
+.mis-val{font-family:'Lora',serif;font-size:15px;font-weight:600}
+.mis-ok{color:var(--green)}
+.mis-high{color:var(--red)}
+.mis-low{color:var(--yellow)}</style>
 </head>
 <body>
 
@@ -324,6 +344,12 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
         <span class="home-card-icon">💊</span>
         <h2>Terapia</h2>
         <p>Farmaci in corso con nome, posologia e orari di assunzione giornalieri.</p>
+      </div>
+      <div class="home-card" style="border-color:var(--border)" onclick="goTo('misurazioni')">
+        <span id="homeBadgeMisurazioni" class="home-card-badge">0 misurazioni</span>
+        <span class="home-card-icon">🩺</span>
+        <h2>Misurazioni</h2>
+        <p>Pressione arteriosa sistolica e diastolica nel tempo, con grafici e valori fuori range.</p>
       </div>
     </div>
 
@@ -487,9 +513,16 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
     <div class="sec-title">💊 Terapia in corso</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button id="notifBtn" class="btn btn-outline btn-sm" onclick="toggleNotifiche()" title="Attiva promemoria medicine">
-        🔔 Promemoria
+        🔕 Promemoria OFF
       </button>
       <button class="btn btn-outline btn-sm" onclick="stampaTerapia()">🖨 Stampa PDF</button>
+      <button class="btn btn-primary btn-sm" onclick="showFarmForm()">+ Aggiungi farmaco</button>
+      <button class="btn btn-red btn-sm" onclick="clearAllFarmaci()">🗑 Cancella tutto</button>
+    </div>
+  </div>
+
+  <!-- PROSSIMA MEDICINA -->
+  <div id="prossimaInfo" style="font-size:13px;color:#a78bfa;margin-bottom:16px;min-height:18px"></div>
       <button class="btn btn-primary btn-sm" onclick="showFarmForm()">+ Aggiungi farmaco</button>
       <button class="btn btn-red btn-sm" onclick="clearAllFarmaci()">🗑 Cancella tutto</button>
     </div>
@@ -558,6 +591,92 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
     <span class="empty-icon">💊</span>
     <h3>Nessun farmaco ancora</h3>
     <p>Aggiungi i tuoi farmaci con nome, dosaggio e orari di assunzione</p>
+  </div>
+
+</main>
+</div>
+
+<!-- ══ MISURAZIONI PAGE ════════════════════════════════════════════════════════ -->
+<div id="pageMisurazioni" class="page-section">
+<main class="wrap">
+
+  <div class="sec-head" style="margin-bottom:20px">
+    <div class="sec-title">🩺 Misurazioni</div>
+    <button class="btn btn-red btn-sm" onclick="clearAllMisurazioni()">🗑 Cancella tutto</button>
+  </div>
+
+  <!-- FORM INSERIMENTO -->
+  <div class="mis-form-row">
+    <div class="mis-input-wrap">
+      <label>Sistolica (mmHg)</label>
+      <input class="mis-input" type="number" id="misSis" placeholder="120" min="50" max="280">
+    </div>
+    <div style="font-size:22px;color:var(--text3);padding-bottom:6px">/</div>
+    <div class="mis-input-wrap">
+      <label>Diastolica (mmHg)</label>
+      <input class="mis-input" type="number" id="misDia" placeholder="80" min="30" max="180">
+    </div>
+    <div class="mis-input-wrap">
+      <label>Frequenza (bpm)</label>
+      <input class="mis-input" type="number" id="misHr" placeholder="—" min="30" max="220" style="width:80px">
+    </div>
+    <div class="mis-input-wrap">
+      <label>Data e ora</label>
+      <input class="mis-input" type="datetime-local" id="misData" style="width:180px">
+    </div>
+    <div class="mis-input-wrap">
+      <label>Note</label>
+      <input class="mis-input" type="text" id="misNote" placeholder="es. dopo colazione" style="width:160px">
+    </div>
+    <button class="btn btn-primary" onclick="addMisurazione()" style="align-self:flex-end">+ Aggiungi</button>
+  </div>
+
+  <!-- CARDS ULTIMI VALORI -->
+  <div class="mis-grid" id="misCards"></div>
+
+  <!-- GRAFICO SVG PRESSIONE -->
+  <div id="misChartWrap" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:24px;display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <h3 style="font-family:'Lora',serif;font-size:18px;margin-bottom:4px">Pressione Arteriosa</h3>
+        <div style="display:flex;gap:16px;font-size:12px">
+          <span><span style="display:inline-block;width:12px;height:3px;background:var(--red);border-radius:2px;vertical-align:middle;margin-right:5px"></span>Sistolica</span>
+          <span><span style="display:inline-block;width:12px;height:3px;background:var(--blue);border-radius:2px;vertical-align:middle;margin-right:5px"></span>Diastolica</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">
+        Range ottimale: &lt;120/80 · Normale: &lt;130/85 · Alta: ≥140/90
+      </div>
+    </div>
+    <div id="misChart" style="width:100%;height:220px"></div>
+    <div style="display:flex;gap:16px;font-size:11px;color:var(--text3);margin-top:8px;flex-wrap:wrap">
+      <span style="color:var(--red);opacity:.6">— — limite sistolica 140</span>
+      <span style="color:var(--blue);opacity:.6">— — limite diastolica 90</span>
+    </div>
+  </div>
+
+  <!-- TABELLA STORICO -->
+  <div id="misTableWrap" style="display:none">
+    <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Storico misurazioni</div>
+    <div style="overflow-x:auto">
+      <table class="mis-table">
+        <thead><tr>
+          <th>Data e ora</th>
+          <th>Sistolica</th>
+          <th>Diastolica</th>
+          <th>Freq.</th>
+          <th>Note</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="misTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="empty" id="misEmpty">
+    <span class="empty-icon">🩺</span>
+    <h3>Nessuna misurazione ancora</h3>
+    <p>Inserisci i valori di pressione per iniziare a tracciare l'andamento</p>
   </div>
 
 </main>
@@ -2390,25 +2509,31 @@ function goTo(page){
   showPage(page);
   if(page==='referti')renderReferti();
   if(page==='terapia')renderFarmaci();
+  if(page==='misurazioni'){
+    renderMisurazioni();
+    // Default datetime to now
+    const now=new Date();
+    now.setSeconds(0,0);
+    document.getElementById('misData').value=now.toISOString().slice(0,16);
+  }
 }
 
 function showPage(page){
   currentPage=page;
   document.querySelectorAll('.page-section').forEach(el=>el.classList.remove('active'));
-  const map={home:'pageHome',analisi:'pageAnalisi',referti:'pageReferti',terapia:'pageTerapia'};
+  const map={home:'pageHome',analisi:'pageAnalisi',referti:'pageReferti',terapia:'pageTerapia',misurazioni:'pageMisurazioni'};
   const el=document.getElementById(map[page]);
   if(el)el.classList.add('active');
   document.getElementById('backHomeBtn').style.display=page==='home'?'none':'';
   const driveBar=document.getElementById('driveBar');
-  if(page==='home'){
-    driveBar.style.display=driveBar._wasConnected?'flex':'none';
-  }
+  if(page==='home') driveBar.style.display=driveBar._wasConnected?'flex':'none';
 }
 
 function updateHomeBadges(){
   document.getElementById('homeBadgeAnalisi').textContent=records.length+' analisi';
   document.getElementById('homeBadgeReferti').textContent=referti.length+' referti';
   document.getElementById('homeBadgeTerapia').textContent=farmaci.length+' farmaci';
+  document.getElementById('homeBadgeMisurazioni').textContent=misurazioni.length+' misurazioni';
 }
 
 // ── REFERTI DATA ──────────────────────────────────────────────────────────────
@@ -2856,6 +2981,7 @@ function saveFarmaco(){
   hideFarmForm();
   renderFarmaci();
   updateHomeBadges();
+  if(_notifEnabled) programmaNotifiche(); // aggiorna timer con nuovi orari
   toast((_editFarmacoId?'Farmaco aggiornato':'Farmaco aggiunto')+' ✓','ok');
 }
 
@@ -3128,15 +3254,477 @@ saveFarmaci=function(){
 // Riprogramma a mezzanotte
 setInterval(()=>{const d=new Date();if(d.getHours()===0&&d.getMinutes()<2&&_notifActive)programmaAlarmi();},60000);
 
+// ── NOTIFICHE MEDICINE ────────────────────────────────────────────────────────
+let _notifEnabled = localStorage.getItem('mc_notif') === '1';
+let _notifTimers  = []; // setTimeout handles
+let _snoozeTimers = []; // snooze handles
+
+function updateNotifBtn(){
+  const btn = document.getElementById('notifBtn');
+  if(!btn) return;
+  btn.textContent = _notifEnabled ? '🔔 Promemoria ON' : '🔕 Promemoria OFF';
+  btn.className   = _notifEnabled
+    ? 'btn btn-sm' : 'btn btn-outline btn-sm';
+  if(_notifEnabled) btn.style.background='#7c3aed';
+  else btn.style.background='';
+}
+
+async function toggleNotifiche(){
+  if(_notifEnabled){
+    _notifEnabled = false;
+    localStorage.setItem('mc_notif','0');
+    cancellaTimer();
+    updateNotifBtn();
+    toast('Promemoria disattivati','ok');
+    return;
+  }
+  // Richiedi permesso
+  if(!('Notification' in window)){
+    toast('Il tuo browser non supporta le notifiche','err'); return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted'){
+    toast('Permesso notifiche negato — abilitalo nelle impostazioni del browser','err'); return;
+  }
+  _notifEnabled = true;
+  localStorage.setItem('mc_notif','1');
+  programmaNotifiche();
+  updateNotifBtn();
+  toast('Promemoria attivati ✓ — tieni il browser aperto','ok');
+}
+
+function cancellaTimer(){
+  _notifTimers.forEach(t => clearTimeout(t));
+  _snoozeTimers.forEach(t => clearTimeout(t));
+  _notifTimers = []; _snoozeTimers = [];
+}
+
+function programmaNotifiche(){
+  cancellaTimer();
+  if(!_notifEnabled || Notification.permission !== 'granted') return;
+
+  const attivi = farmaci.filter(f => (f.stato||'attivo') === 'attivo');
+  if(!attivi.length) return;
+
+  // Raggruppa per orario: {ora -> [{nome, dosaggio, qta}]}
+  const byOra = {};
+  attivi.forEach(f => {
+    f.orari.forEach(o => {
+      if(!byOra[o.ora]) byOra[o.ora] = [];
+      byOra[o.ora].push({nome: f.nome, dosaggio: f.dosaggio||'', qta: o.qta});
+    });
+  });
+
+  const ora = new Date();
+  Object.entries(byOra).forEach(([orario, farmList]) => {
+    const [hh, mm] = orario.split(':').map(Number);
+    const target = new Date();
+    target.setHours(hh, mm, 0, 0);
+    // Se l'orario è già passato oggi, programma per domani
+    if(target <= ora) target.setDate(target.getDate() + 1);
+    const diff = target - ora;
+    const t = setTimeout(() => suonaMedicina(orario, farmList), diff);
+    _notifTimers.push(t);
+  });
+
+  // Riprogramma ogni giorno a mezzanotte +1min
+  const mezzanotte = new Date();
+  mezzanotte.setHours(24, 1, 0, 0);
+  const tReset = setTimeout(() => {
+    if(_notifEnabled) programmaNotifiche();
+  }, mezzanotte - new Date());
+  _notifTimers.push(tReset);
+}
+
+function suonaMedicina(orario, farmList, tentativo=1){
+  if(!_notifEnabled || Notification.permission !== 'granted') return;
+  if(tentativo > 6) return; // max 1 ora (6 × 10min)
+
+  const corpo = farmList.map(f =>
+    `💊 ${f.nome}${f.dosaggio?' '+f.dosaggio:''} — ${f.qta}`
+  ).join('\n');
+
+  const notif = new Notification('🕐 Ora di prendere le medicine', {
+    body: corpo,
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💊</text></svg>',
+    tag:  'medicina-' + orario,       // sovrascrive la precedente stessa ora
+    requireInteraction: true,          // rimane fino a interazione utente
+    silent: false,
+  });
+
+  // Suono aggiuntivo via AudioContext (più affidabile del silent:false)
+  _suonaBeep();
+
+  notif.onclick = () => {
+    notif.close();
+    cancellaSnooze(orario);
+    // Mostra toast di conferma
+    toast(`✅ Medicine delle ${orario} prese!`, 'ok');
+    window.focus();
+  };
+
+  notif.onclose = () => {
+    // Se chiusa senza click → snooze automatico 10min
+    cancellaSnooze(orario);
+    if(tentativo < 6){
+      const t = setTimeout(() =>
+        suonaMedicina(orario, farmList, tentativo + 1), 10 * 60 * 1000);
+      _snoozeTimers.push({id:t, tag:orario});
+    }
+  };
+}
+
+function cancellaSnooze(tag){
+  _snoozeTimers = _snoozeTimers.filter(s => {
+    if(s.tag === tag){ clearTimeout(s.id); return false; }
+    return true;
+  });
+}
+
+function _suonaBeep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    // Sequenza 3 beep
+    [0, 0.3, 0.6].forEach(delay => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.3);
+    });
+  }catch(e){ /* audio non disponibile */ }
+}
+
+// Mostra prossima medicine nella pagina terapia
+function prossimaMedicina(){
+  const attivi = farmaci.filter(f => (f.stato||'attivo') === 'attivo');
+  const byOra = {};
+  attivi.forEach(f => f.orari.forEach(o => {
+    if(!byOra[o.ora]) byOra[o.ora] = [];
+    byOra[o.ora].push(f.nome);
+  }));
+  const ora = new Date();
+  const hhmm = ora.getHours().toString().padStart(2,'0')+':'+ora.getMinutes().toString().padStart(2,'0');
+  const prossime = Object.entries(byOra)
+    .filter(([o]) => o > hhmm)
+    .sort(([a],[b]) => a.localeCompare(b));
+  const el = document.getElementById('prossimaInfo');
+  if(!el) return;
+  if(!prossime.length){ el.textContent = ''; return; }
+  const [o, nomi] = prossime[0];
+  el.textContent = `⏭ Prossima: ${o} — ${nomi.join(', ')}`;
+}
+
+// ── MISURAZIONI ───────────────────────────────────────────────────────────────
+let misurazioni=(()=>{
+  try{const r=localStorage.getItem('mc_mis');return r?JSON.parse(r):[];}
+  catch(e){return[];}
+})();
+
+function saveMisurazioni(){
+  try{localStorage.setItem('mc_mis',JSON.stringify(misurazioni));}
+  catch(e){console.error('saveMisurazioni',e);}
+}
+
+// Limiti pressione (mmHg)
+const MIS_LIM={sis:{ok:130,high:140}, dia:{ok:85,high:90}};
+
+function misStatus(val, tipo){
+  const lim=MIS_LIM[tipo];
+  if(val>=lim.high) return 'high';
+  if(val>=lim.ok)   return 'warn';   // tra normale e alta
+  if(val<60)        return 'low';
+  return 'ok';
+}
+function misColor(st){
+  if(st==='high') return 'var(--red)';
+  if(st==='warn') return 'var(--yellow)';
+  if(st==='low')  return 'var(--yellow)';
+  return 'var(--green)';
+}
+function misCls(st){
+  if(st==='high'||st==='warn') return 'mis-high';
+  if(st==='low')  return 'mis-low';
+  return 'mis-ok';
+}
+
+function addMisurazione(){
+  const sis=parseInt(document.getElementById('misSis').value);
+  const dia=parseInt(document.getElementById('misDia').value);
+  if(!sis||!dia||sis<50||sis>280||dia<30||dia>180){
+    toast('Inserisci valori validi di pressione','err'); return;
+  }
+  const hr=parseInt(document.getElementById('misHr').value)||null;
+  const rawDt=document.getElementById('misData').value;
+  const dt=rawDt? new Date(rawDt).toISOString() : new Date().toISOString();
+  const note=document.getElementById('misNote').value.trim();
+
+  misurazioni.push({id:String(Date.now()), dt, sis, dia, hr, note});
+  misurazioni.sort((a,b)=>a.dt.localeCompare(b.dt));
+  saveMisurazioni();
+
+  // Reset form (keep datetime)
+  document.getElementById('misSis').value='';
+  document.getElementById('misDia').value='';
+  document.getElementById('misHr').value='';
+  document.getElementById('misNote').value='';
+
+  renderMisurazioni();
+  updateHomeBadges();
+  toast('Misurazione aggiunta ✓','ok');
+}
+
+function deleteMisurazione(id){
+  misurazioni=misurazioni.filter(m=>m.id!==id);
+  saveMisurazioni();renderMisurazioni();updateHomeBadges();
+}
+
+function clearAllMisurazioni(){
+  if(!confirm('Eliminare tutte le misurazioni?'))return;
+  misurazioni=[];saveMisurazioni();renderMisurazioni();updateHomeBadges();
+  toast('Misurazioni cancellate','ok');
+}
+
+function fmtDT(iso){
+  const d=new Date(iso);
+  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'2-digit'})+
+    ' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+
+function renderMisurazioni(){
+  const empty=document.getElementById('misEmpty');
+  const chartWrap=document.getElementById('misChartWrap');
+  const tableWrap=document.getElementById('misTableWrap');
+  const cards=document.getElementById('misCards');
+
+  if(!misurazioni.length){
+    empty.style.display='';chartWrap.style.display='none';
+    tableWrap.style.display='none';cards.innerHTML='';return;
+  }
+  empty.style.display='none';
+  chartWrap.style.display='';tableWrap.style.display='';
+
+  // Cards ultima misurazione
+  const last=misurazioni[misurazioni.length-1];
+  const ssSt=misStatus(last.sis,'sis');
+  const diSt=misStatus(last.dia,'dia');
+  cards.innerHTML=`
+    <div class="mis-card">
+      <div class="mis-card-label">Sistolica (ultima)</div>
+      <div class="mis-card-val ${misCls(ssSt)}" style="color:${misColor(ssSt)}">${last.sis}</div>
+      <div class="mis-card-unit">mmHg</div>
+    </div>
+    <div class="mis-card">
+      <div class="mis-card-label">Diastolica (ultima)</div>
+      <div class="mis-card-val ${misCls(diSt)}" style="color:${misColor(diSt)}">${last.dia}</div>
+      <div class="mis-card-unit">mmHg</div>
+    </div>
+    ${last.hr?`<div class="mis-card">
+      <div class="mis-card-label">Frequenza (ultima)</div>
+      <div class="mis-card-val" style="color:var(--text)">${last.hr}</div>
+      <div class="mis-card-unit">bpm</div>
+    </div>`:''}
+    <div class="mis-card">
+      <div class="mis-card-label">Totale misurazioni</div>
+      <div class="mis-card-val" style="color:var(--text);font-size:22px">${misurazioni.length}</div>
+      <div class="mis-card-unit">rilevazioni</div>
+    </div>`;
+
+  // Table
+  const tbody=document.getElementById('misTableBody');
+  tbody.innerHTML=[...misurazioni].reverse().map(m=>{
+    const ss=misStatus(m.sis,'sis');
+    const dd=misStatus(m.dia,'dia');
+    return`<tr>
+      <td style="white-space:nowrap">${fmtDT(m.dt)}</td>
+      <td><span class="mis-val ${misCls(ss)}" style="color:${misColor(ss)}">${m.sis}</span></td>
+      <td><span class="mis-val ${misCls(dd)}" style="color:${misColor(dd)}">${m.dia}</span></td>
+      <td style="color:var(--text2)">${m.hr||'—'}</td>
+      <td style="color:var(--text3);font-style:italic">${m.note||''}</td>
+      <td><button class="btn btn-red btn-sm" onclick="deleteMisurazione('${m.id}')">🗑</button></td>
+    </tr>`;
+  }).join('');
+
+  drawMisChart();
+}
+
+function drawMisChart(){
+  const wrap=document.getElementById('misChart');
+  if(!misurazioni.length)return;
+  const W=wrap.clientWidth||700;
+  const H=220;
+  const PAD={top:24,right:28,bottom:44,left:48};
+  const cw=W-PAD.left-PAD.right;
+  const ch=H-PAD.top-PAD.bottom;
+
+  const data=misurazioni.map(m=>({
+    label:fmtDT(m.dt),
+    sis:m.sis, dia:m.dia, hr:m.hr,
+    note:m.note, id:m.id
+  }));
+
+  // Y range: include limits
+  const allVals=[...data.map(d=>d.sis),...data.map(d=>d.dia),60,150];
+  const rawMin=Math.min(...allVals);
+  const rawMax=Math.max(...allVals);
+  const padY=(rawMax-rawMin)*0.18||10;
+  const yMin=rawMin-padY;
+  const yMax=rawMax+padY;
+
+  const xP=i=>PAD.left+(data.length>1?i/(data.length-1):0.5)*cw;
+  const yP=v=>PAD.top+ch-(v-yMin)/(yMax-yMin)*ch;
+
+  // Catmull-Rom
+  function crPath(pts){
+    if(pts.length===1) return`M${pts[0][0]},${pts[0][1]}`;
+    if(pts.length===2) return`M${pts[0][0]},${pts[0][1]}L${pts[1][0]},${pts[1][1]}`;
+    let d=`M${pts[0][0]},${pts[0][1]}`;
+    for(let i=0;i<pts.length-1;i++){
+      const p0=pts[Math.max(i-1,0)];
+      const p1=pts[i],p2=pts[i+1];
+      const p3=pts[Math.min(i+2,pts.length-1)];
+      const a=0.5;
+      const c1x=p1[0]+(p2[0]-p0[0])*a/3, c1y=p1[1]+(p2[1]-p0[1])*a/3;
+      const c2x=p2[0]-(p3[0]-p1[0])*a/3, c2y=p2[1]-(p3[1]-p1[1])*a/3;
+      d+=`C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0]},${p2[1]}`;
+    }
+    return d;
+  }
+
+  const sisPts=data.map((d,i)=>[xP(i),yP(d.sis)]);
+  const diaPts=data.map((d,i)=>[xP(i),yP(d.dia)]);
+
+  // Grid
+  let grid='',yLbls='';
+  for(let i=0;i<=4;i++){
+    const y=PAD.top+(ch/4)*i;
+    const v=yMax-(yMax-yMin)*(i/4);
+    grid+=`<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${PAD.left+cw}" y2="${y.toFixed(1)}" stroke="#1e2332" stroke-width="1"/>`;
+    yLbls+=`<text x="${PAD.left-6}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="#3d4459" font-size="10" font-family="IBM Plex Sans">${v.toFixed(0)}</text>`;
+  }
+
+  // Limit lines
+  const ySis140=yP(140), yDia90=yP(90);
+  const limLines=`
+    <line x1="${PAD.left}" y1="${ySis140.toFixed(1)}" x2="${PAD.left+cw}" y2="${ySis140.toFixed(1)}" stroke="var(--red)" stroke-width="1" stroke-dasharray="5,4" opacity=".45"/>
+    <text x="${PAD.left+cw-4}" y="${(ySis140-4).toFixed(1)}" text-anchor="end" fill="var(--red)" font-size="9.5" font-family="IBM Plex Sans" opacity=".6">140</text>
+    <line x1="${PAD.left}" y1="${yDia90.toFixed(1)}" x2="${PAD.left+cw}" y2="${yDia90.toFixed(1)}" stroke="var(--blue)" stroke-width="1" stroke-dasharray="5,4" opacity=".45"/>
+    <text x="${PAD.left+cw-4}" y="${(yDia90-4).toFixed(1)}" text-anchor="end" fill="var(--blue)" font-size="9.5" font-family="IBM Plex Sans" opacity=".6">90</text>`;
+
+  // Gradient fills
+  const gSis=`gradSis${Date.now()}`, gDia=`gradDia${Date.now()}`;
+  const sisFill=crPath(sisPts)+`L${xP(data.length-1)},${PAD.top+ch}L${xP(0)},${PAD.top+ch}Z`;
+  const diaFill=crPath(diaPts)+`L${xP(data.length-1)},${PAD.top+ch}L${xP(0)},${PAD.top+ch}Z`;
+
+  // Dots
+  const sisDotsHtml=data.map((d,i)=>{
+    const st=misStatus(d.sis,'sis');
+    const col=misColor(st);
+    return`<circle class="mv-dot" cx="${xP(i).toFixed(1)}" cy="${yP(d.sis).toFixed(1)}" r="5"
+      fill="${col}" stroke="#0a0c10" stroke-width="2.5"
+      data-i="${i}" data-type="sis" style="cursor:pointer"/>`;
+  }).join('');
+  const diaDotsHtml=data.map((d,i)=>{
+    const st=misStatus(d.dia,'dia');
+    const col=misColor(st);
+    return`<circle class="mv-dot" cx="${xP(i).toFixed(1)}" cy="${yP(d.dia).toFixed(1)}" r="5"
+      fill="${col}" stroke="#0a0c10" stroke-width="2.5"
+      data-i="${i}" data-type="dia" style="cursor:pointer"/>`;
+  }).join('');
+
+  // X labels (show max 8)
+  const step=Math.max(1,Math.floor(data.length/8));
+  const xLbls=data.map((d,i)=>i%step===0||i===data.length-1
+    ?`<text x="${xP(i).toFixed(1)}" y="${H-10}" text-anchor="middle" fill="#3d4459" font-size="9" font-family="IBM Plex Sans">${d.label.split(' ')[0]}</text>`
+    :''
+  ).join('');
+
+  const svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;overflow:visible;display:block">
+    <defs>
+      <linearGradient id="${gSis}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--red)" stop-opacity=".15"/>
+        <stop offset="100%" stop-color="var(--red)" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="${gDia}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--blue)" stop-opacity=".12"/>
+        <stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>
+      </linearGradient>
+      <clipPath id="clipMis"><rect x="${PAD.left}" y="${PAD.top}" width="${cw}" height="${ch}"/></clipPath>
+    </defs>
+    ${grid}${yLbls}${limLines}
+    <path d="${diaFill}" fill="url(#${gDia})" clip-path="url(#clipMis)"/>
+    <path d="${sisFill}" fill="url(#${gSis})" clip-path="url(#clipMis)"/>
+    <path d="${crPath(diaPts)}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="${crPath(sisPts)}" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"/>
+    ${diaDotsHtml}${sisDotsHtml}
+    ${xLbls}
+  </svg>`;
+
+  wrap.innerHTML=svg;
+
+  // Tooltip interattivo — mostra entrambi i valori al punto
+  wrap.querySelectorAll('.mv-dot').forEach(dot=>{
+    dot.addEventListener('mouseenter',function(e){
+      this.setAttribute('r','8');
+      const i=+this.dataset.i;
+      const d=data[i];
+      const ssSt=misStatus(d.sis,'sis');
+      const ddSt=misStatus(d.dia,'dia');
+      const tip=document.getElementById('ctip');
+      document.getElementById('ctipDate').textContent=d.label;
+      document.getElementById('ctipVal').innerHTML=
+        `<span style="color:var(--red)">${d.sis}</span>`+
+        `<span style="color:var(--text2);font-size:18px;margin:0 4px">/</span>`+
+        `<span style="color:var(--blue)">${d.dia}</span>`+
+        `<span style="font-size:13px;color:var(--text3);margin-left:6px">mmHg</span>`;
+      let extra='';
+      if(ssSt!=='ok') extra+=`Sistolica ${ssSt==='high'?'↑ alta':'↑ limite'} `;
+      if(ddSt!=='ok') extra+=`Diastolica ${ddSt==='high'?'↑ alta':'↑ limite'}`;
+      if(d.hr) extra+=`${extra?' · ':''}FC: ${d.hr} bpm`;
+      if(d.note) extra+=`${extra?' · ':''}${d.note}`;
+      document.getElementById('ctipExtra').textContent=extra;
+      document.getElementById('ctipStatus').textContent='';
+      document.getElementById('ctipStatus').className='ctip-status';
+      tip.style.opacity='1';
+      _moveTip(e);
+    });
+    dot.addEventListener('mousemove',_moveTip);
+    dot.addEventListener('mouseleave',function(){
+      this.setAttribute('r','5');
+      document.getElementById('ctip').style.opacity='0';
+    });
+  });
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 showPage('home');
 updateHomeBadges();
 render();
 initServiceWorker();
 
+// Restore notifications if previously enabled
+updateNotifBtn();
+if(_notifEnabled){
+  if(Notification.permission === 'granted'){
+    programmaNotifiche();
+  } else {
+    _notifEnabled = false;
+    localStorage.setItem('mc_notif','0');
+    updateNotifBtn();
+  }
+}
+
+// Update "prossima medicina" every minute when on terapia page
+prossimaMedicina();
+setInterval(()=>{ if(currentPage==='terapia') prossimaMedicina(); }, 60000);
+
 window.addEventListener('resize',()=>{
   if(currentPage==='analisi'&&selected.length)selected.forEach(p=>drawSVGChart(p));
+  if(currentPage==='misurazioni'&&misurazioni.length)drawMisChart();
 });
-</script>
 </body>
 </html>
