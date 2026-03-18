@@ -308,6 +308,7 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   <div class="logo" style="cursor:pointer" onclick="goHome()">
     <div class="logo-mark">🩺</div>
     <span class="logo-name">MedChart</span>
+    <span style="font-size:10px;color:var(--text3);margin-left:6px;font-family:'IBM Plex Sans',sans-serif">v2.5</span>
   </div>
   <div class="hdr-right" id="hdrRight">
     <button class="btn btn-outline btn-sm" onclick="exportData()">⬇ JSON</button>
@@ -794,6 +795,7 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
 <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='';
 
@@ -1923,14 +1925,16 @@ function renderRecords(){
     return`<div class="card">
       <div class="card-date">${fmtDate(r.date)}</div>
       <div class="card-name">${r.filename}</div>
-      <div class="card-lab">${Object.keys(r.params).length} parametri rilevati</div>
+      <div class="card-lab">${Object.keys(r.params).length} parametri rilevati${r.manual?' · ✏️ Inserimento manuale':''}</div>
       <div class="tags">
         ${shown.map(p=>`<span class="tag ${status(r.params[p].value,r.params[p].min,r.params[p].max)!=='ok'?'alert':''}" onclick="jumpToChart('${p}')" title="Vai al grafico di ${p}" style="cursor:pointer">${p} ↗</span>`).join('')}
         ${extra>0?`<span class="tag">+${extra}</span>`:''}
       </div>
       ${alerts.length?`<div class="card-warn">⚠ ${alerts.length} parametr${alerts.length===1?'o':'i'} fuori range</div>`:''}
       <div class="card-foot">
-        ${hasPdf?`<button class="btn btn-outline btn-sm" onclick="openLabPdf('${r.id}')">👁 PDF</button>`:''}
+        <button class="btn btn-outline btn-sm" onclick="openLabPdf('${r.id}')" title="${hasPdf?'Visualizza PDF':'Ricarica il PDF per visualizzarlo'}">
+          ${hasPdf?'👁 PDF':'📄 PDF'}
+        </button>
         <button class="btn btn-outline btn-sm" onclick="emailLabRec('${r.id}')">✉</button>
         <button class="btn btn-red btn-sm" style="flex:1" onclick="deleteRec('${r.id}')">🗑 Rimuovi</button>
       </div>
@@ -2275,16 +2279,20 @@ function deleteRec(id){
 
 function openLabPdf(id){
   const pdfData=_pdfCache[String(id)];
-  console.log('openLabPdf id='+String(id)+' found='+(!!pdfData)+' keys='+Object.keys(_pdfCache).join(','));
-  if(!pdfData){toast('PDF non disponibile — ricarica il file','err');return;}
   const rec=records.find(r=>String(r.id)===String(id));
-  // Reuse the referto PDF viewer modal
+  if(!pdfData){
+    if(rec?.manual){
+      toast('PDF inserimento manuale — non disponibile dopo ricaricamento pagina','err');
+    } else {
+      toast('PDF non in memoria — ricarica il file PDF originale per visualizzarlo','err');
+    }
+    return;
+  }
   _currentPdfRec={pdfData, filename: rec?rec.filename:'analisi.pdf', title:'', date:'', reparto:''};
   document.getElementById('pdfModalTitle').textContent=rec?rec.filename:'Analisi';
   document.getElementById('pdfOverlay').style.display='block';
   document.getElementById('pdfModal').style.display='flex';
   document.getElementById('pdfPages').innerHTML='<div style="color:var(--text2);padding:40px;text-align:center">⟳ Caricamento…</div>';
-  // Render pages
   (async()=>{
     try{
       const base64=pdfData.split(',')[1];
@@ -3948,63 +3956,145 @@ function blobToBase64(blob){
 }
 
 async function generaPdfManuale(dataVal,nome,params){
+  const {jsPDF}=window.jspdf;
   const [yy,mm,dd]=dataVal.split('-');
   const dateStr=`${dd}/${mm}/${yy}`;
   const oggi=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
 
-  const righe=Object.entries(params).map(([p,v])=>{
-    const st=status(v.value,v.min,v.max);
-    const col=st==='high'?'#dc2626':st==='low'?'#d97706':'#16a34a';
-    const flag=st!=='ok'?` <span style="color:${col};font-weight:700">${st==='high'?'↑':'↓'}</span>`:'';
-    const range=v.min!==null&&v.max!==null?`${v.min}–${v.max}`:
-      v.max!==null?`< ${v.max}`:v.min!==null?`> ${v.min}`:'—';
-    return`<tr style="border-bottom:1px solid #eee">
-      <td style="padding:8px 10px;font-weight:500">${p}</td>
-      <td style="padding:8px 10px;text-align:right;font-weight:700;color:${col}">${v.value}${flag}</td>
-      <td style="padding:8px 10px;color:#666">${v.unit||'—'}</td>
-      <td style="padding:8px 10px;color:#999;font-size:12px">${range}</td>
-    </tr>`;
-  }).join('');
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210, PL=14, PR=14, CW=W-PL-PR;
+  let y=14;
 
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#111;padding:28px 36px;max-width:800px}
-    table{width:100%;border-collapse:collapse}
-    th{text-align:left;padding:8px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;
-       text-transform:uppercase;color:#555;background:#f7f7f7;border-bottom:2px solid #ddd}
-    th:nth-child(2){text-align:right}
-    @media print{@page{margin:1.5cm}}
-  </style></head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;
-       margin-bottom:24px;padding-bottom:14px;border-bottom:3px solid #111">
-    <div>
-      <div style="font-size:20px;font-weight:700">🔬 Analisi del Sangue</div>
-      <div style="font-size:13px;color:#555;margin-top:4px">${nome}</div>
-    </div>
-    <div style="text-align:right;font-size:13px;color:#555">
-      <div style="font-weight:700;font-size:15px;color:#111">BAZZOCCHI ALESSANDRO</div>
-      <div>Data esame: <strong>${dateStr}</strong></div>
-      <div style="font-size:11px;margin-top:4px;color:#999">Inserimento manuale — ${oggi}</div>
-    </div>
-  </div>
-  <table>
-    <thead><tr>
-      <th>Parametro</th><th style="text-align:right">Valore</th>
-      <th>U.M.</th><th>Range rif.</th>
-    </tr></thead>
-    <tbody>${righe}</tbody>
-  </table>
-  <div style="margin-top:24px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:10px">
-    Documento generato da MedChart il ${oggi}. Dati inseriti manualmente — non sostituisce referto ufficiale.
-  </div>
-  </body></html>`;
+  // ── Intestazione ────────────────────────────────────────────────────────────
+  doc.setFillColor(17,17,17);
+  doc.rect(PL,y,CW,1,'F');
+  y+=4;
 
-  // Convert HTML to PDF blob via print API (blob URL trick)
-  return new Promise(res=>{
-    const blob=new Blob([html],{type:'text/html'});
-    res(blob); // Return HTML blob — browser will handle print/save as PDF
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.setTextColor(17,17,17);
+  doc.text('Analisi del Sangue',PL,y);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(80,80,80);
+  doc.text(nome,PL,y+5);
+
+  // Right side
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.setTextColor(17,17,17);
+  doc.text('BAZZOCCHI ALESSANDRO',W-PR,y,{align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(100,100,100);
+  doc.text(`Data esame: ${dateStr}`,W-PR,y+5,{align:'right'});
+  doc.text(`Inserimento manuale — ${oggi}`,W-PR,y+10,{align:'right'});
+
+  y+=18;
+  doc.setDrawColor(220,220,220);
+  doc.line(PL,y,W-PR,y);
+  y+=6;
+
+  // ── Header tabella ───────────────────────────────────────────────────────────
+  const cols=[
+    {label:'Parametro',    x:PL,        w:72},
+    {label:'Valore',       x:PL+72,     w:26, align:'right'},
+    {label:'U.M.',         x:PL+98+3,   w:24},
+    {label:'Range rif.',   x:PL+98+3+24,w:40},
+    {label:'',             x:PL+CW-6,   w:6},
+  ];
+
+  doc.setFillColor(247,247,247);
+  doc.rect(PL,y-4,CW,7,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(100,100,100);
+  cols.forEach(c=>{
+    if(!c.label)return;
+    if(c.align==='right') doc.text(c.label,c.x+c.w,y,{align:'right'});
+    else doc.text(c.label,c.x,y);
   });
+  y+=5;
+  doc.setDrawColor(180,180,180);
+  doc.line(PL,y,W-PR,y);
+  y+=3;
+
+  // ── Righe ────────────────────────────────────────────────────────────────────
+  const entries=Object.entries(params);
+  doc.setFontSize(9);
+
+  entries.forEach(([p,v],idx)=>{
+    // Page break
+    if(y>272){doc.addPage();y=20;}
+
+    const st=status(v.value,v.min,v.max);
+    const isAlt=st!=='ok';
+
+    // Alternating row background
+    if(idx%2===0){
+      doc.setFillColor(252,252,252);
+      doc.rect(PL,y-3.5,CW,6,'F');
+    }
+
+    // Nome
+    doc.setFont('helvetica',isAlt?'bold':'normal');
+    doc.setTextColor(isAlt?180:40, isAlt?20:40, isAlt?20:40);
+    doc.text(p,cols[0].x,y);
+
+    // Valore
+    if(st==='high')      doc.setTextColor(185,28,28);
+    else if(st==='low')  doc.setTextColor(180,100,0);
+    else                 doc.setTextColor(22,163,74);
+    doc.setFont('helvetica','bold');
+    doc.text(String(v.value),cols[1].x+cols[1].w,y,{align:'right'});
+
+    // Freccia fuori range
+    if(isAlt){
+      doc.setFontSize(8);
+      doc.text(st==='high'?'↑':'↓',cols[1].x+cols[1].w+2,y);
+      doc.setFontSize(9);
+    }
+
+    // U.M.
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(100,100,100);
+    doc.text(v.unit||'—',cols[2].x,y);
+
+    // Range
+    const range=v.min!==null&&v.max!==null?`${v.min} – ${v.max}`:
+      v.max!==null?`< ${v.max}`:v.min!==null?`> ${v.min}`:'—';
+    doc.text(range,cols[3].x,y);
+
+    // Riga separatrice
+    doc.setDrawColor(235,235,235);
+    doc.line(PL,y+2.5,W-PR,y+2.5);
+
+    y+=6;
+  });
+
+  y+=4;
+  doc.setDrawColor(180,180,180);
+  doc.line(PL,y,W-PR,y);
+  y+=5;
+
+  // ── Footer ───────────────────────────────────────────────────────────────────
+  doc.setFont('helvetica','italic');
+  doc.setFontSize(7.5);
+  doc.setTextColor(160,160,160);
+  doc.text(`Documento generato da MedChart il ${oggi}. Inserimento manuale — non sostituisce referto medico ufficiale.`,PL,y);
+
+  // Numero pagina
+  const pages=doc.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(180,180,180);
+    doc.text(`Pag. ${i}/${pages}`,W-PR,287,{align:'right'});
+  }
+
+  return doc.output('blob');
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
