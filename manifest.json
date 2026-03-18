@@ -1,0 +1,45 @@
+{
+  "name": "MedChart — Fascicolo Sanitario",
+  "short_name": "MedChart",
+  "description": "Il tuo fascicolo sanitario personale: analisi, referti e terapia",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "orientation": "portrait-primary",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Terapia",
+      "short_name": "Terapia",
+      "url": "./index.html#terapia",
+      "icons": [{"src": "icon-72.png", "sizes": "72x72"}]
+    },
+    {
+      "name": "Analisi",
+      "short_name": "Analisi",
+      "url": "./index.html#analisi",
+      "icons": [{"src": "icon-72.png", "sizes": "72x72"}]
+    }
+  ]
+}

@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0c10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MedChart">
+<link rel="manifest" href="manifest.json">
 <title>MedChart — Analisi del Sangue</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -226,7 +232,37 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 .page-section{display:none}
 .page-section.active{display:block}
 
-.info-section{margin-bottom:22px}
+/* TERAPIA */
+.home-card.terapia:hover{border-color:#a78bfa}
+.farm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:4px}
+.farm-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;transition:.18s}
+.farm-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.farm-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#a78bfa,#7c3aed);border-radius:14px 14px 0 0;opacity:0;transition:.2s}
+.farm-card:hover::before{opacity:1}
+.farm-name{font-family:'Lora',serif;font-size:17px;font-weight:600;color:var(--text);margin-bottom:4px}
+.farm-dose{font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5}
+.farm-orari{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center}
+.farm-ora{display:inline-flex;align-items:center;gap:5px;background:#2d1f4e;border:1px solid #4c1d95;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#a78bfa;font-family:'IBM Plex Sans',sans-serif}
+.farm-ora span{color:var(--text2);font-weight:400}
+.farm-note{font-size:11px;color:var(--text3);margin-bottom:10px;font-style:italic}
+.farm-foot{display:flex;gap:7px}
+
+/* TERAPIA FORM */
+.farm-form{background:var(--s2);border:1px solid var(--border2);border-radius:14px;padding:20px;margin-bottom:24px}
+.farm-form h3{font-size:16px;margin-bottom:16px;color:var(--text)}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.form-field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px}
+.form-field label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.form-field input,.form-field textarea,.form-field select{background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:.18s;width:100%}
+.form-field input:focus,.form-field textarea:focus{border-color:#a78bfa}
+.orario-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.orario-pill{display:flex;align-items:center;gap:6px;background:#2d1f4e;border:1px solid #4c1d95;border-radius:8px;padding:5px 10px}
+.orario-pill span{font-size:12px;font-weight:600;color:#a78bfa}
+.orario-pill button{background:none;border:none;color:#6d28d9;cursor:pointer;font-size:14px;line-height:1;padding:0}
+.orario-pill button:hover{color:#a78bfa}
+.add-orario-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.add-orario-row input{width:90px;flex:none}
+.add-orario-row select{width:130px;flex:none}
 .info-section h4{font-family:'Lora',serif;font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .info-section p{color:var(--text2);font-size:14px;line-height:1.7}
 .info-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
@@ -282,6 +318,12 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
         <span class="home-card-icon">📋</span>
         <h2>Referti</h2>
         <p>Visite specialistiche, referti di cardiologia, nefrologia, radiologia e altro.</p>
+      </div>
+      <div class="home-card" style="border-color:var(--border)" onclick="goTo('terapia')">
+        <span id="homeBadgeTerapia" class="home-card-badge">0 farmaci</span>
+        <span class="home-card-icon">💊</span>
+        <h2>Terapia</h2>
+        <p>Farmaci in corso con nome, posologia e orari di assunzione giornalieri.</p>
       </div>
     </div>
 
@@ -437,7 +479,91 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 </main>
 </div>
 
-<!-- PDF VIEWER MODAL -->
+<!-- ══ TERAPIA PAGE ════════════════════════════════════════════════════════════ -->
+<div id="pageTerapia" class="page-section">
+<main class="wrap">
+
+  <div class="sec-head" style="margin-bottom:20px">
+    <div class="sec-title">💊 Terapia in corso</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button id="notifBtn" class="btn btn-outline btn-sm" onclick="toggleNotifiche()" title="Attiva promemoria medicine">
+        🔔 Promemoria
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="stampaTerapia()">🖨 Stampa PDF</button>
+      <button class="btn btn-primary btn-sm" onclick="showFarmForm()">+ Aggiungi farmaco</button>
+      <button class="btn btn-red btn-sm" onclick="clearAllFarmaci()">🗑 Cancella tutto</button>
+    </div>
+  </div>
+
+  <!-- NOTIFICATION STATUS -->
+  <div id="notifBar" style="display:none;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);
+    border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;display:none;
+    align-items:center;justify-content:space-between;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="notifDot" style="width:8px;height:8px;border-radius:50%;background:#a78bfa;display:inline-block"></span>
+      <span id="notifText">Promemoria attivi</span>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="riprogrammaOggi()" style="font-size:11px">↺ Riprogramma oggi</button>
+  </div>
+
+  <!-- FORM AGGIUNTA (nascosto di default) -->
+  <div class="farm-form" id="farmForm" style="display:none">
+    <h3 id="farmFormTitle">➕ Nuovo farmaco</h3>
+    <div class="form-row">
+      <div class="form-field" style="flex:2;min-width:200px">
+        <label>Nome farmaco</label>
+        <input type="text" id="farmNome" placeholder="es. Tacrolimus, Metoprololo…" autocomplete="off">
+      </div>
+      <div class="form-field">
+        <label>Dosaggio</label>
+        <input type="text" id="farmDosaggio" placeholder="es. 0.5mg, 100mg…">
+      </div>
+    </div>
+
+    <!-- ORARI -->
+    <div class="form-field" style="margin-bottom:12px">
+      <label>Orari di assunzione</label>
+      <div id="orariList" class="orario-row"></div>
+      <div class="add-orario-row" style="margin-top:8px">
+        <input type="time" id="newOraTime" value="08:00">
+        <input type="text" id="newOraQta" placeholder="1 cp" style="width:80px;flex:none">
+        <button class="btn btn-outline btn-sm" onclick="addOrario()">+ Orario</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field" style="flex:2">
+        <label>Note (opzionale)</label>
+        <input type="text" id="farmNote" placeholder="es. a cicli di un mese, con il cibo…">
+      </div>
+      <div class="form-field">
+        <label>Stato</label>
+        <select id="farmStato">
+          <option value="attivo">✅ Attivo</option>
+          <option value="sospeso">⏸ Sospeso</option>
+          <option value="al bisogno">🔔 Al bisogno</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveFarmaco()">💾 Salva farmaco</button>
+      <button class="btn btn-outline" onclick="hideFarmForm()">Annulla</button>
+    </div>
+  </div>
+
+  <!-- LISTA FARMACI -->
+  <div id="farmList"></div>
+  <div class="empty" id="farmEmpty">
+    <span class="empty-icon">💊</span>
+    <h3>Nessun farmaco ancora</h3>
+    <p>Aggiungi i tuoi farmaci con nome, dosaggio e orari di assunzione</p>
+  </div>
+
+</main>
+</div>
+
+<!-- ══ PDF VIEWER MODAL ══════════════════════════════════════════════════════ -->
 <div class="pdf-overlay" id="pdfOverlay" onclick="closePdfViewer()"></div>
 <div class="pdf-modal" id="pdfModal">
   <div class="pdf-modal-head">
@@ -2263,16 +2389,16 @@ function goHome(){
 function goTo(page){
   showPage(page);
   if(page==='referti')renderReferti();
+  if(page==='terapia')renderFarmaci();
 }
 
 function showPage(page){
   currentPage=page;
   document.querySelectorAll('.page-section').forEach(el=>el.classList.remove('active'));
-  const map={home:'pageHome',analisi:'pageAnalisi',referti:'pageReferti'};
+  const map={home:'pageHome',analisi:'pageAnalisi',referti:'pageReferti',terapia:'pageTerapia'};
   const el=document.getElementById(map[page]);
   if(el)el.classList.add('active');
   document.getElementById('backHomeBtn').style.display=page==='home'?'none':'';
-  // Move driveBar: on home it's inside home-page, on other pages show in header area
   const driveBar=document.getElementById('driveBar');
   if(page==='home'){
     driveBar.style.display=driveBar._wasConnected?'flex':'none';
@@ -2282,6 +2408,7 @@ function showPage(page){
 function updateHomeBadges(){
   document.getElementById('homeBadgeAnalisi').textContent=records.length+' analisi';
   document.getElementById('homeBadgeReferti').textContent=referti.length+' referti';
+  document.getElementById('homeBadgeTerapia').textContent=farmaci.length+' farmaci';
 }
 
 // ── REFERTI DATA ──────────────────────────────────────────────────────────────
@@ -2633,10 +2760,379 @@ window.addEventListener('resize',()=>{
   if(currentPage==='analisi'&&selected.length)selected.forEach(p=>drawSVGChart(p));
 });
 
+// ── TERAPIA ───────────────────────────────────────────────────────────────────
+let farmaci=(()=>{
+  try{const r=localStorage.getItem('mc_farmaci');return r?JSON.parse(r):[];}
+  catch(e){return[];}
+})();
+let _editFarmacoId=null;
+let _tempOrari=[]; // [{ora:'08:00', qta:'1 cp'}]
+
+function saveFarmaci(){
+  try{localStorage.setItem('mc_farmaci',JSON.stringify(farmaci));}
+  catch(e){console.error('saveFarmaci',e);}
+}
+
+function showFarmForm(id){
+  _editFarmacoId=id||null;
+  const form=document.getElementById('farmForm');
+  const title=document.getElementById('farmFormTitle');
+  if(id){
+    const f=farmaci.find(x=>x.id===id);
+    if(!f)return;
+    document.getElementById('farmNome').value=f.nome;
+    document.getElementById('farmDosaggio').value=f.dosaggio||'';
+    document.getElementById('farmNote').value=f.note||'';
+    document.getElementById('farmStato').value=f.stato||'attivo';
+    _tempOrari=[...f.orari];
+    title.textContent='✏️ Modifica farmaco';
+  } else {
+    document.getElementById('farmNome').value='';
+    document.getElementById('farmDosaggio').value='';
+    document.getElementById('farmNote').value='';
+    document.getElementById('farmStato').value='attivo';
+    _tempOrari=[];
+    title.textContent='➕ Nuovo farmaco';
+  }
+  renderOrariForm();
+  form.style.display='';
+  form.scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('farmNome').focus();
+}
+
+function hideFarmForm(){
+  document.getElementById('farmForm').style.display='none';
+  _tempOrari=[];_editFarmacoId=null;
+}
+
+function addOrario(){
+  const ora=document.getElementById('newOraTime').value;
+  const qta=document.getElementById('newOraQta').value.trim()||'1 cp';
+  if(!ora)return;
+  _tempOrari.push({ora,qta});
+  _tempOrari.sort((a,b)=>a.ora.localeCompare(b.ora));
+  document.getElementById('newOraQta').value='1 cp';
+  renderOrariForm();
+}
+
+function removeOrario(idx){
+  _tempOrari.splice(idx,1);
+  renderOrariForm();
+}
+
+function renderOrariForm(){
+  const list=document.getElementById('orariList');
+  list.innerHTML=_tempOrari.map((o,i)=>`
+    <div class="orario-pill">
+      <span>🕐 ${o.ora}</span>
+      <span style="color:var(--text)">${o.qta}</span>
+      <button onclick="removeOrario(${i})" title="Rimuovi">×</button>
+    </div>`).join('');
+}
+
+function saveFarmaco(){
+  const nome=document.getElementById('farmNome').value.trim();
+  if(!nome){
+    document.getElementById('farmNome').style.borderColor='var(--red)';
+    setTimeout(()=>document.getElementById('farmNome').style.borderColor='',1500);
+    return;
+  }
+  const f={
+    id:_editFarmacoId||String(Date.now()),
+    nome,
+    dosaggio:document.getElementById('farmDosaggio').value.trim(),
+    note:document.getElementById('farmNote').value.trim(),
+    stato:document.getElementById('farmStato').value,
+    orari:[..._tempOrari],
+    updatedAt:new Date().toISOString()
+  };
+  if(_editFarmacoId){
+    const idx=farmaci.findIndex(x=>x.id===_editFarmacoId);
+    if(idx>=0)farmaci[idx]=f;
+  } else {
+    farmaci.push(f);
+  }
+  saveFarmaci();
+  hideFarmForm();
+  renderFarmaci();
+  updateHomeBadges();
+  toast((_editFarmacoId?'Farmaco aggiornato':'Farmaco aggiunto')+' ✓','ok');
+}
+
+function deleteFarmaco(id){
+  if(!confirm('Rimuovere questo farmaco?'))return;
+  farmaci=farmaci.filter(f=>f.id!==id);
+  saveFarmaci();renderFarmaci();updateHomeBadges();
+}
+
+function clearAllFarmaci(){
+  if(!confirm('Eliminare tutta la terapia?'))return;
+  farmaci=[];saveFarmaci();renderFarmaci();updateHomeBadges();
+  toast('Terapia cancellata','ok');
+}
+
+function renderFarmaci(){
+  const list=document.getElementById('farmList');
+  const empty=document.getElementById('farmEmpty');
+  if(!farmaci.length){list.innerHTML='';empty.style.display='';return;}
+  empty.style.display='none';
+
+  // Group by stato
+  const gruppi=[
+    {stato:'attivo',   label:'✅ Farmaci attivi',      color:'var(--green)'},
+    {stato:'al bisogno',label:'🔔 Al bisogno',         color:'var(--yellow)'},
+    {stato:'sospeso',  label:'⏸ Sospesi',              color:'var(--text3)'},
+  ];
+
+  list.innerHTML=gruppi.map(g=>{
+    const ff=farmaci.filter(f=>(f.stato||'attivo')===g.stato);
+    if(!ff.length)return'';
+    return`
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+             color:${g.color};margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          ${g.label} <span style="color:var(--text3);font-weight:400">(${ff.length})</span>
+        </div>
+        <div class="farm-grid">
+          ${ff.map(f=>farmCard(f)).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function farmCard(f){
+  const orariHtml=f.orari.length
+    ?f.orari.map(o=>`<div class="farm-ora">🕐 ${o.ora}<span>${o.qta}</span></div>`).join('')
+    :'<span style="color:var(--text3);font-size:12px">Nessun orario impostato</span>';
+  return`<div class="farm-card">
+    <div class="farm-name">💊 ${f.nome}${f.dosaggio?` <span style="font-size:13px;color:var(--text2);font-family:\'IBM Plex Sans\',sans-serif;font-weight:400">${f.dosaggio}</span>`:''}</div>
+    ${f.note?`<div class="farm-note">${f.note}</div>`:''}
+    <div class="farm-orari">${orariHtml}</div>
+    <div class="farm-foot">
+      <button class="btn btn-outline btn-sm" onclick="showFarmForm('${f.id}')">✏️ Modifica</button>
+      <button class="btn btn-red btn-sm" onclick="deleteFarmaco('${f.id}')">🗑</button>
+    </div>
+  </div>`;
+}
+
+function stampaTerapia(){
+  if(!farmaci.length){toast('Nessun farmaco da stampare','err');return;}
+
+  const attivi   = farmaci.filter(f=>(f.stato||'attivo')==='attivo');
+  const bisogno  = farmaci.filter(f=>f.stato==='al bisogno');
+  const sospesi  = farmaci.filter(f=>f.stato==='sospeso');
+  const oggi     = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+
+  function rigaOrari(orari){
+    if(!orari.length) return '<span style="color:#888">—</span>';
+    return orari.map(o=>`<span style="display:inline-block;background:#f0f0f0;border-radius:5px;
+      padding:3px 9px;margin:2px;font-size:12px;font-weight:600">
+      🕐 ${o.ora} &nbsp;${o.qta}</span>`).join('');
+  }
+
+  function sezione(titolo, lista, colore){
+    if(!lista.length) return '';
+    return `
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+             color:${colore};border-bottom:2px solid ${colore};padding-bottom:5px;margin-bottom:14px">
+          ${titolo} (${lista.length})
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#f7f7f7">
+              <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;
+                   letter-spacing:.05em;text-transform:uppercase;color:#555;width:35%">Farmaco</th>
+              <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;
+                   letter-spacing:.05em;text-transform:uppercase;color:#555;width:20%">Dosaggio</th>
+              <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;
+                   letter-spacing:.05em;text-transform:uppercase;color:#555">Orari</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lista.map((f,i)=>`
+            <tr style="border-bottom:1px solid #eee;background:${i%2?'#fafafa':'#fff'}">
+              <td style="padding:10px 10px;font-weight:600;font-size:14px;color:#111">
+                ${f.nome}
+                ${f.note?`<br><span style="font-size:11px;color:#888;font-weight:400;font-style:italic">${f.note}</span>`:''}
+              </td>
+              <td style="padding:10px;font-size:13px;color:#333">${f.dosaggio||'—'}</td>
+              <td style="padding:10px">${rigaOrari(f.orari)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  const html=`<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Terapia in corso — ${oggi}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:32px 40px;max-width:900px;margin:0 auto}
+  @media print{
+    body{padding:20px 24px}
+    .no-print{display:none!important}
+    @page{margin:1.5cm}
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print" style="margin-bottom:24px;display:flex;gap:10px">
+  <button onclick="window.print()" style="padding:10px 20px;background:#111;color:#fff;border:none;
+    border-radius:7px;font-size:14px;font-weight:600;cursor:pointer">🖨 Stampa / Salva PDF</button>
+  <button onclick="window.close()" style="padding:10px 16px;background:#eee;color:#333;border:none;
+    border-radius:7px;font-size:14px;cursor:pointer">✕ Chiudi</button>
+</div>
+
+<!-- INTESTAZIONE -->
+<div style="display:flex;justify-content:space-between;align-items:flex-start;
+     margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #111">
+  <div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-.5px">💊 Terapia in corso</div>
+    <div style="font-size:13px;color:#555;margin-top:4px">Documento generato il ${oggi}</div>
+  </div>
+  <div style="text-align:right;font-size:13px;color:#555">
+    <div style="font-weight:600;font-size:15px;color:#111">BAZZOCCHI ALESSANDRO</div>
+    <div>Data di nascita: 18/09/1976</div>
+    <div style="margin-top:6px;font-size:11px;background:#f0f0f0;border-radius:5px;
+         padding:3px 8px;display:inline-block">MedChart — Fascicolo Personale</div>
+  </div>
+</div>
+
+${sezione('✅ Farmaci attivi', attivi, '#16a34a')}
+${sezione('🔔 Al bisogno', bisogno, '#d97706')}
+${sezione('⏸ Sospesi', sospesi, '#6b7280')}
+
+<!-- NOTE -->
+<div style="margin-top:32px;padding:14px 16px;background:#fffbeb;border:1px solid #fcd34d;
+     border-radius:8px;font-size:12px;color:#78350f">
+  ⚠️ Questo documento è generato automaticamente a scopo informativo.
+  Fare sempre riferimento alla prescrizione medica ufficiale.
+  In caso di dubbi consultare il proprio medico o farmacista.
+</div>
+
+<!-- FIRMA -->
+<div style="margin-top:32px;display:flex;justify-content:space-between;font-size:12px;color:#888;
+     padding-top:12px;border-top:1px solid #ddd">
+  <span>Totale farmaci: ${farmaci.length} (attivi: ${attivi.length})</span>
+  <span>Stampato da MedChart il ${oggi}</span>
+</div>
+
+</body>
+</html>`;
+
+  const w=window.open('','_blank','width=900,height=700');
+  if(w){w.document.write(html);w.document.close();}
+  else toast('Abilita i popup del browser per stampare','err');
+}
+
+// ── NOTIFICHE FARMACI ─────────────────────────────────────────────────────────
+let _sw=null;
+let _notifActive=localStorage.getItem('mc_notif')==='1';
+
+async function initServiceWorker(){
+  if(!('serviceWorker' in navigator))return;
+  try{
+    _sw=await navigator.serviceWorker.register('sw.js',{scope:'./'});
+    navigator.serviceWorker.addEventListener('message',e=>{
+      if(e.data?.type==='PRESE_CONFERMATE')
+        toast(`✅ Medicine delle ${e.data.oraKey} segnate come prese`,'ok');
+    });
+    if(_notifActive)await programmaAlarmi();
+    aggiornaNotifBtn();
+  }catch(err){console.warn('SW:',err);}
+}
+
+async function toggleNotifiche(){
+  if(!('Notification' in window)){toast('Browser non supporta notifiche','err');return;}
+  if(_notifActive){
+    _notifActive=false;localStorage.setItem('mc_notif','0');
+    cancellaAlarmi();aggiornaNotifBtn();
+    toast('Promemoria disattivati','ok');return;
+  }
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('Permesso notifiche negato — abilitalo nelle impostazioni','err');return;}
+  _notifActive=true;localStorage.setItem('mc_notif','1');
+  await programmaAlarmi();aggiornaNotifBtn();
+  toast('Promemoria attivati ✓','ok');
+}
+
+function aggiornaNotifBtn(){
+  const btn=document.getElementById('notifBtn');
+  const bar=document.getElementById('notifBar');
+  const txt=document.getElementById('notifText');
+  if(!btn)return;
+  if(!('Notification' in window)){btn.textContent='🔕 Non supportato';btn.disabled=true;return;}
+  if(_notifActive&&Notification.permission==='granted'){
+    btn.textContent='🔔 Promemoria ON';
+    btn.style.cssText='background:rgba(167,139,250,.15);border-color:#a78bfa;color:#a78bfa';
+    if(bar)bar.style.display='flex';
+    const orari=getOrariAttivi();
+    if(txt)txt.textContent=orari.length?`Attivi: ${orari.join(', ')}`:'Nessun orario configurato';
+  } else {
+    btn.textContent='🔔 Promemoria';btn.style.cssText='';
+    if(bar)bar.style.display='none';
+  }
+}
+
+function getOrariAttivi(){
+  const s=new Set();
+  farmaci.filter(f=>(f.stato||'attivo')==='attivo').forEach(f=>f.orari.forEach(o=>s.add(o.ora)));
+  return[...s].sort();
+}
+
+function buildAlarms(){
+  const byOra={};
+  farmaci.filter(f=>(f.stato||'attivo')==='attivo').forEach(f=>{
+    f.orari.forEach(o=>{
+      if(!byOra[o.ora])byOra[o.ora]=[];
+      byOra[o.ora].push({nome:f.nome,dosaggio:f.dosaggio||'',qta:o.qta});
+    });
+  });
+  const now=new Date();
+  return Object.entries(byOra).map(([ora,farmList])=>{
+    const[hh,mm]=ora.split(':').map(Number);
+    const fire=new Date(now);fire.setHours(hh,mm,0,0);
+    if(fire<=now)fire.setDate(fire.getDate()+1);
+    return{oraKey:ora,msToFire:fire-now,farmaci:farmList};
+  });
+}
+
+function getSW(){return _sw&&(_sw.active||_sw.installing||_sw.waiting);}
+
+async function programmaAlarmi(){
+  const sw=getSW();if(!sw)return;
+  sw.postMessage({type:'SCHEDULE_ALARMS',payload:{alarms:buildAlarms()}});
+}
+
+function cancellaAlarmi(){
+  const sw=getSW();if(sw)sw.postMessage({type:'SCHEDULE_ALARMS',payload:{alarms:[]}});
+}
+
+async function riprogrammaOggi(){
+  if(!_notifActive){toast('Attiva prima i promemoria','err');return;}
+  await programmaAlarmi();toast('Promemoria riprogrammati ✓','ok');aggiornaNotifBtn();
+}
+
+// Wrap saveFarmaci per riprogrammare automaticamente quando cambiano i farmaci
+const _saveFarmaciOrig=saveFarmaci;
+saveFarmaci=function(){
+  _saveFarmaciOrig();
+  if(_notifActive)programmaAlarmi().then(()=>aggiornaNotifBtn());
+};
+
+// Riprogramma a mezzanotte
+setInterval(()=>{const d=new Date();if(d.getHours()===0&&d.getMinutes()<2&&_notifActive)programmaAlarmi();},60000);
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 showPage('home');
 updateHomeBadges();
 render();
+initServiceWorker();
 
 window.addEventListener('resize',()=>{
   if(currentPage==='analisi'&&selected.length)selected.forEach(p=>drawSVGChart(p));
