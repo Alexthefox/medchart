@@ -679,20 +679,19 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
     <div class="sec-title">💊 Terapia in corso</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button id="notifBtn" class="btn btn-outline btn-sm" onclick="toggleNotifiche()" title="Attiva promemoria medicine">
-        🔕 Promemoria OFF
+        🔕 Promemoria
+      </button>
+      <button id="testNotifBtn" class="btn btn-outline btn-sm" onclick="testNotifica()" title="Invia una notifica di test subito" style="display:none">
+        🔔 Test
       </button>
       <button class="btn btn-outline btn-sm" onclick="stampaTerapia()">🖨 Stampa PDF</button>
-      <button class="btn btn-primary btn-sm" onclick="showFarmForm()">+ Aggiungi farmaco</button>
-      <button class="btn btn-red btn-sm" onclick="clearAllFarmaci()">🗑 Cancella tutto</button>
+      <button class="btn btn-primary btn-sm" onclick="showFarmForm()">+ Aggiungi</button>
+      <button class="btn btn-red btn-sm" onclick="clearAllFarmaci()">🗑</button>
     </div>
   </div>
 
   <!-- PROSSIMA MEDICINA -->
   <div id="prossimaInfo" style="font-size:13px;color:#a78bfa;margin-bottom:16px;min-height:18px"></div>
-      <button class="btn btn-primary btn-sm" onclick="showFarmForm()">+ Aggiungi farmaco</button>
-      <button class="btn btn-red btn-sm" onclick="clearAllFarmaci()">🗑 Cancella tutto</button>
-    </div>
-  </div>
 
   <!-- NOTIFICATION STATUS -->
   <div id="notifBar" style="display:none;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);
@@ -3456,6 +3455,10 @@ async function initServiceWorker(){
     navigator.serviceWorker.addEventListener('message',e=>{
       if(e.data?.type==='PRESE_CONFERMATE')
         toast(`✅ Medicine delle ${e.data.oraKey} segnate come prese`,'ok');
+      if(e.data?.type==='POSTICIPATO')
+        toast(`⏰ Medicine delle ${e.data.oraKey} posticipate di ${e.data.minuti} min`,'ok');
+      if(e.data?.type==='REQUEST_ALARMS')
+        if(_notifActive) programmaAlarmi();
     });
     if(_notifActive)await programmaAlarmi();
     aggiornaNotifBtn();
@@ -3484,6 +3487,7 @@ async function toggleNotifiche(){
 
 function aggiornaNotifBtn(){
   const btn=document.getElementById('notifBtn');
+  const testBtn=document.getElementById('testNotifBtn');
   const bar=document.getElementById('notifBar');
   const txt=document.getElementById('notifText');
   if(!btn)return;
@@ -3491,13 +3495,22 @@ function aggiornaNotifBtn(){
   if(_notifActive&&Notification.permission==='granted'){
     btn.textContent='🔔 Promemoria ON';
     btn.style.cssText='background:rgba(167,139,250,.15);border-color:#a78bfa;color:#a78bfa';
+    if(testBtn)testBtn.style.display='';
     if(bar)bar.style.display='flex';
     const orari=getOrariAttivi();
     if(txt)txt.textContent=orari.length?`Attivi: ${orari.join(', ')}`:'Nessun orario configurato';
   } else {
     btn.textContent='🔔 Promemoria';btn.style.cssText='';
+    if(testBtn)testBtn.style.display='none';
     if(bar)bar.style.display='none';
   }
+}
+
+function testNotifica(){
+  const sw=getSW();
+  if(!sw){toast('Service Worker non attivo — ricarica la pagina','err');return;}
+  sw.postMessage({type:'TEST_NOTIF'});
+  toast('Notifica di test inviata — controlla la barra delle notifiche','ok');
 }
 
 function getOrariAttivi(){
@@ -3549,170 +3562,9 @@ saveFarmaci=function(){
 // Riprogramma a mezzanotte
 setInterval(()=>{const d=new Date();if(d.getHours()===0&&d.getMinutes()<2&&_notifActive)programmaAlarmi();},60000);
 
-// ── NOTIFICHE MEDICINE ────────────────────────────────────────────────────────
-let _notifEnabled = localStorage.getItem('mc_notif') === '1';
-let _notifTimers  = []; // setTimeout handles
-let _snoozeTimers = []; // snooze handles
-
-function updateNotifBtn(){
-  const btn = document.getElementById('notifBtn');
-  if(!btn) return;
-  btn.textContent = _notifEnabled ? '🔔 Promemoria ON' : '🔕 Promemoria OFF';
-  btn.className   = _notifEnabled
-    ? 'btn btn-sm' : 'btn btn-outline btn-sm';
-  if(_notifEnabled) btn.style.background='#7c3aed';
-  else btn.style.background='';
-}
-
-async function toggleNotifiche(){
-  if(_notifEnabled){
-    _notifEnabled = false;
-    localStorage.setItem('mc_notif','0');
-    cancellaTimer();
-    updateNotifBtn();
-    toast('Promemoria disattivati','ok');
-    return;
-  }
-  // Richiedi permesso
-  if(!('Notification' in window)){
-    toast('Il tuo browser non supporta le notifiche','err'); return;
-  }
-  const perm = await Notification.requestPermission();
-  if(perm !== 'granted'){
-    toast('Permesso notifiche negato — abilitalo nelle impostazioni del browser','err'); return;
-  }
-  _notifEnabled = true;
-  localStorage.setItem('mc_notif','1');
-  programmaNotifiche();
-  updateNotifBtn();
-  toast('Promemoria attivati ✓ — tieni il browser aperto','ok');
-}
-
-function cancellaTimer(){
-  _notifTimers.forEach(t => clearTimeout(t));
-  _snoozeTimers.forEach(t => clearTimeout(t));
-  _notifTimers = []; _snoozeTimers = [];
-}
-
-function programmaNotifiche(){
-  cancellaTimer();
-  if(!_notifEnabled || Notification.permission !== 'granted') return;
-
-  const attivi = farmaci.filter(f => (f.stato||'attivo') === 'attivo');
-  if(!attivi.length) return;
-
-  // Raggruppa per orario: {ora -> [{nome, dosaggio, qta}]}
-  const byOra = {};
-  attivi.forEach(f => {
-    f.orari.forEach(o => {
-      if(!byOra[o.ora]) byOra[o.ora] = [];
-      byOra[o.ora].push({nome: f.nome, dosaggio: f.dosaggio||'', qta: o.qta});
-    });
-  });
-
-  const ora = new Date();
-  Object.entries(byOra).forEach(([orario, farmList]) => {
-    const [hh, mm] = orario.split(':').map(Number);
-    const target = new Date();
-    target.setHours(hh, mm, 0, 0);
-    // Se l'orario è già passato oggi, programma per domani
-    if(target <= ora) target.setDate(target.getDate() + 1);
-    const diff = target - ora;
-    const t = setTimeout(() => suonaMedicina(orario, farmList), diff);
-    _notifTimers.push(t);
-  });
-
-  // Riprogramma ogni giorno a mezzanotte +1min
-  const mezzanotte = new Date();
-  mezzanotte.setHours(24, 1, 0, 0);
-  const tReset = setTimeout(() => {
-    if(_notifEnabled) programmaNotifiche();
-  }, mezzanotte - new Date());
-  _notifTimers.push(tReset);
-}
-
-function suonaMedicina(orario, farmList, tentativo=1){
-  if(!_notifEnabled || Notification.permission !== 'granted') return;
-  if(tentativo > 6) return; // max 1 ora (6 × 10min)
-
-  const corpo = farmList.map(f =>
-    `💊 ${f.nome}${f.dosaggio?' '+f.dosaggio:''} — ${f.qta}`
-  ).join('\n');
-
-  const notif = new Notification('🕐 Ora di prendere le medicine', {
-    body: corpo,
-    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💊</text></svg>',
-    tag:  'medicina-' + orario,       // sovrascrive la precedente stessa ora
-    requireInteraction: true,          // rimane fino a interazione utente
-    silent: false,
-  });
-
-  // Suono aggiuntivo via AudioContext (più affidabile del silent:false)
-  _suonaBeep();
-
-  notif.onclick = () => {
-    notif.close();
-    cancellaSnooze(orario);
-    // Mostra toast di conferma
-    toast(`✅ Medicine delle ${orario} prese!`, 'ok');
-    window.focus();
-  };
-
-  notif.onclose = () => {
-    // Se chiusa senza click → snooze automatico 10min
-    cancellaSnooze(orario);
-    if(tentativo < 6){
-      const t = setTimeout(() =>
-        suonaMedicina(orario, farmList, tentativo + 1), 10 * 60 * 1000);
-      _snoozeTimers.push({id:t, tag:orario});
-    }
-  };
-}
-
-function cancellaSnooze(tag){
-  _snoozeTimers = _snoozeTimers.filter(s => {
-    if(s.tag === tag){ clearTimeout(s.id); return false; }
-    return true;
-  });
-}
-
-function _suonaBeep(){
-  try{
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    // Sequenza 3 beep
-    [0, 0.3, 0.6].forEach(delay => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.3);
-    });
-  }catch(e){ /* audio non disponibile */ }
-}
-
-// Mostra prossima medicine nella pagina terapia
-function prossimaMedicina(){
-  const attivi = farmaci.filter(f => (f.stato||'attivo') === 'attivo');
-  const byOra = {};
-  attivi.forEach(f => f.orari.forEach(o => {
-    if(!byOra[o.ora]) byOra[o.ora] = [];
-    byOra[o.ora].push(f.nome);
-  }));
-  const ora = new Date();
-  const hhmm = ora.getHours().toString().padStart(2,'0')+':'+ora.getMinutes().toString().padStart(2,'0');
-  const prossime = Object.entries(byOra)
-    .filter(([o]) => o > hhmm)
-    .sort(([a],[b]) => a.localeCompare(b));
-  const el = document.getElementById('prossimaInfo');
-  if(!el) return;
-  if(!prossime.length){ el.textContent = ''; return; }
-  const [o, nomi] = prossime[0];
-  el.textContent = `⏭ Prossima: ${o} — ${nomi.join(', ')}`;
-}
+// ── NOTIFICHE (sistema unificato via Service Worker) ────────────────────────
+// Il SW riceve SCHEDULE_ALARMS e mostra notifiche con azioni Prese/Posticipa
+// Questo sistema funziona anche con browser minimizzato su Android
 
 // ── MISURAZIONI ───────────────────────────────────────────────────────────────
 let misurazioni=(()=>{
