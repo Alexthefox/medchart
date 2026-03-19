@@ -2,14 +2,16 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0a0c10">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MedChart">
 <link rel="manifest" href="manifest.json">
-<title>MedChart — Analisi del Sangue</title>
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABx0RVh0U29mdHdhcmUAQWRvYmUgRmlyZXdvcmtzIENTNui8sowAAAAWdEVYdENyZWF0aW9uIFRpbWUAMDkvMTIvMDmLWdovAAACqklEQVR4nO3BMQEAAADCoPVP7WsIoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAMBuAABHgAAAABJRU5ErkJggg==">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0c10'/><text x='16' y='24' font-size='20' text-anchor='middle'>🩺</text></svg>">
+<title>MedChart</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -265,6 +267,87 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 .add-orario-row select{width:130px;flex:none}
 .info-section h4{font-family:'Lora',serif;font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .info-section p{color:var(--text2);font-size:14px;line-height:1.7}
+
+/* ── MOBILE RESPONSIVE ─────────────────────────────────────────────────────── */
+@media(max-width:640px){
+  /* Header */
+  .hdr{padding:12px 16px}
+  .logo-name{font-size:17px}
+  .hdr-right .btn{padding:7px 10px;font-size:12px}
+  .hdr-right .btn:not(#backHomeBtn):not(#driveBtn){display:none} /* hide JSON btns on mobile */
+
+  /* Wrap */
+  .wrap{padding:16px 14px}
+
+  /* Home cards — 2x2 grid on mobile */
+  .home-page{gap:24px;padding:24px 14px}
+  .home-logo h1{font-size:26px}
+  .home-cards{gap:12px;max-width:100%}
+  .home-card{min-width:calc(50% - 6px);max-width:calc(50% - 6px);padding:18px 14px;border-radius:16px}
+  .home-card-icon{font-size:32px;margin-bottom:10px}
+  .home-card h2{font-size:16px;margin-bottom:4px}
+  .home-card p{display:none} /* hide description on mobile */
+  .home-card-badge{font-size:10px;padding:1px 7px;top:10px;right:10px}
+
+  /* Drop zone */
+  #homeDrop{padding:20px 16px}
+  #homeDrop h2{font-size:15px}
+  #homeDrop p{font-size:12px}
+
+  /* Charts */
+  .chart-card{padding:16px 14px 12px}
+  .chart-title{font-size:16px}
+  .stat-v{font-size:18px}
+
+  /* Cards grid */
+  .cards,.farm-grid,.ref-grid{grid-template-columns:1fr}
+
+  /* Tabs */
+  .tabs{gap:2px;padding:3px}
+  .tab-btn{font-size:12px;padding:8px 10px}
+
+  /* Terapia form */
+  .farm-form{padding:14px}
+  .form-row{flex-direction:column}
+  .form-field{min-width:100%}
+
+  /* Misurazioni form */
+  .mis-form-row{gap:8px}
+  .mis-input{width:80px;font-size:13px}
+  .mis-input[id=misNote],[id=misData]{width:100%}
+  .mis-input-wrap label{font-size:9px}
+
+  /* Inserimento manuale */
+  #manGrid{grid-template-columns:1fr 90px 48px !important}
+  #manGrid > div:nth-child(4n){display:none} /* hide range col on mobile */
+
+  /* Alert banner */
+  .alert-items{gap:6px}
+  .alert-item{font-size:11px;padding:5px 9px}
+
+  /* Ref toolbar */
+  .ref-toolbar{gap:8px}
+  .ref-search{max-width:100%}
+
+  /* PDF modal */
+  .pdf-modal-head{padding:10px 14px;gap:8px}
+  .pdf-modal-actions{gap:5px}
+  .pdf-modal-actions .btn{padding:6px 10px;font-size:11px}
+
+  /* Compare panel */
+  .compare-selects{flex-direction:column;align-items:flex-start}
+  .cmp-select{width:100%}
+  .compare-results{gap:6px}
+  .cmp-item{min-width:calc(50% - 4px)}
+
+  /* Sec head */
+  .sec-head{flex-wrap:wrap;gap:8px}
+  .sec-title{font-size:15px}
+
+  /* Safe area for notch/home indicator */
+  .hdr{padding-top:calc(12px + env(safe-area-inset-top))}
+  .wrap{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+}
 .info-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
 
 /* INSERIMENTO MANUALE */
@@ -1702,7 +1785,7 @@ async function syncToDrive(){
   if(!records.length){toast('Nessun dato da salvare','err');return;}
   try{
     await ensureFolder();
-    var content=JSON.stringify({records:records,selected:selected},null,2);
+    var content=JSON.stringify({records,selected,referti:referti.map(r=>({...r,pdfData:undefined})),farmaci,misurazioni},null,2);
 
     // Verify driveDbId is still valid
     if(driveDbId){
@@ -1807,9 +1890,13 @@ async function loadFromDrive(){
       toast('Il file Drive esiste ma è vuoto — ricarica i PDF e premi "↑ Salva su Drive"','err');
       return;
     }
-    records=data.records||[];selected=data.selected||[];
-    save();render();
-    toast('Caricati '+records.length+' analisi da Drive ✓','ok');
+    records=data.records||[];
+    selected=data.selected||[];
+    if(data.referti?.length){referti=data.referti;saveReferti();}
+    if(data.farmaci?.length){farmaci=data.farmaci;saveFarmaci();}
+    if(data.misurazioni?.length){misurazioni=data.misurazioni;saveMisurazioni();}
+    save();render();renderReferti();updateHomeBadges();
+    toast(`Caricati: ${records.length} analisi, ${referti.length} referti, ${farmaci.length} farmaci ✓`,'ok');
   }catch(e){console.error('loadFromDrive error:',e);toast('Errore caricamento Drive: '+driveErrMsg(e),'err');}
 }
 
@@ -2346,10 +2433,14 @@ function selectAll(){selected=[...allParams()];save();renderParamSel();renderCha
 function deselectAll(){selected=[];save();renderParamSel();renderCharts();}
 
 function exportData(){
-  const blob=new Blob([JSON.stringify({records,selected},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({
+    records,selected,
+    referti:referti.map(r=>({...r,pdfData:undefined})),
+    farmaci,misurazioni
+  },null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`medchart_backup_${new Date().toISOString().split('T')[0]}.json`;a.click();
-  toast('Backup esportato ✓','ok');
+  toast('Backup completo esportato ✓','ok');
 }
 function importData(e){
   const f=e.target.files[0];if(!f)return;
@@ -2358,8 +2449,11 @@ function importData(e){
     try{
       const d=JSON.parse(ev.target.result);
       records=d.records||[];selected=d.selected||[];
-      save();render();
-      toast(`${records.length} analisi importate ✓`,'ok');
+      if(d.referti?.length){referti=d.referti;saveReferti();}
+      if(d.farmaci?.length){farmaci=d.farmaci;saveFarmaci();}
+      if(d.misurazioni?.length){misurazioni=d.misurazioni;saveMisurazioni();}
+      save();render();renderReferti();updateHomeBadges();
+      toast(`Importati: ${records.length} analisi, ${referti.length} referti, ${farmaci.length} farmaci ✓`,'ok');
     }catch{toast('File JSON non valido','err');}
   };
   r.readAsText(f);
@@ -3223,7 +3317,9 @@ let _notifActive=localStorage.getItem('mc_notif')==='1';
 async function initServiceWorker(){
   if(!('serviceWorker' in navigator))return;
   try{
-    _sw=await navigator.serviceWorker.register('sw.js',{scope:'./'});
+    // Use /medchart/ scope for GitHub Pages, ./ for local
+    const scope=location.hostname.includes('github.io')?'/medchart/':'./';
+    _sw=await navigator.serviceWorker.register('sw.js',{scope});
     navigator.serviceWorker.addEventListener('message',e=>{
       if(e.data?.type==='PRESE_CONFERMATE')
         toast(`✅ Medicine delle ${e.data.oraKey} segnate come prese`,'ok');
@@ -3231,6 +3327,12 @@ async function initServiceWorker(){
     if(_notifActive)await programmaAlarmi();
     aggiornaNotifBtn();
   }catch(err){console.warn('SW:',err);}
+
+  // Handle PWA shortcut hash navigation (#analisi, #terapia, #misurazioni)
+  const hash=location.hash.replace('#','');
+  if(['analisi','referti','terapia','misurazioni'].includes(hash)){
+    setTimeout(()=>goTo(hash),100);
+  }
 }
 
 async function toggleNotifiche(){
