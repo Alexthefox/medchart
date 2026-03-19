@@ -767,7 +767,10 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 
   <div class="sec-head" style="margin-bottom:20px">
     <div class="sec-title">🩺 Misurazioni</div>
-    <button class="btn btn-red btn-sm" onclick="clearAllMisurazioni()">🗑 Cancella tutto</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="stampaMisurazioni()">🖨 Stampa PDF</button>
+      <button class="btn btn-red btn-sm" onclick="clearAllMisurazioni()">🗑 Cancella tutto</button>
+    </div>
   </div>
 
   <!-- FORM INSERIMENTO -->
@@ -845,6 +848,28 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
   </div>
 
 </main>
+</div>
+
+<!-- ══ MEDICINE REMINDER MODAL ════════════════════════════════════════════════ -->
+<div id="medReminderOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;backdrop-filter:blur(8px)"></div>
+<div id="medReminderModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:2001;width:min(360px,90vw);background:var(--s1);border:1px solid rgba(167,139,250,.3);
+  border-radius:20px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.8);text-align:center">
+  <div style="font-size:48px;margin-bottom:12px">💊</div>
+  <div style="font-family:'Lora',serif;font-size:20px;font-weight:600;margin-bottom:6px;color:var(--text)" id="medReminderTitle">
+    Ora di prendere le medicine
+  </div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:16px" id="medReminderTime"></div>
+  <div id="medReminderList" style="background:var(--s2);border-radius:12px;padding:14px;margin-bottom:20px;text-align:left"></div>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-outline" style="flex:1;font-size:14px" onclick="posticipaMedicine()">
+      ⏰ Posticipa 10 min
+    </button>
+    <button class="btn btn-primary" style="flex:1;font-size:14px;background:#7c3aed" onclick="confermaPreseMedicine()">
+      ✅ Prese!
+    </button>
+  </div>
+  <div id="medReminderTentativo" style="font-size:11px;color:var(--text3);margin-top:12px"></div>
 </div>
 
 <!-- ══ PDF VIEWER MODAL ══════════════════════════════════════════════════════ -->
@@ -3267,7 +3292,7 @@ function saveFarmaco(){
   hideFarmForm();
   renderFarmaci();
   updateHomeBadges();
-  if(_notifEnabled) programmaNotifiche(); // aggiorna timer con nuovi orari
+  if(_notifActive) programmaAlarmi(); // aggiorna timer con nuovi orari
   toast((_editFarmacoId?'Farmaco aggiornato':'Farmaco aggiunto')+' ✓','ok');
 }
 
@@ -3519,6 +3544,68 @@ function getOrariAttivi(){
   return[...s].sort();
 }
 
+// ── IN-APP REMINDER MODAL ─────────────────────────────────────────────────────
+let _currentReminder=null; // {oraKey, farmList, tentativo, snoozeTimer}
+
+function mostraReminderModal(oraKey, farmList, tentativo=1){
+  _currentReminder={oraKey, farmList, tentativo, snoozeTimer:null};
+
+  document.getElementById('medReminderTime').textContent=
+    `Orario: ${oraKey} · Tentativo ${tentativo}/6`;
+  document.getElementById('medReminderList').innerHTML=
+    farmList.map(f=>`<div style="display:flex;justify-content:space-between;padding:6px 0;
+      border-bottom:1px solid var(--border);color:var(--text)">
+      <span style="font-weight:600">💊 ${f.nome}${f.dosaggio?' <span style="color:var(--text3);font-weight:400;font-size:12px">'+f.dosaggio+'</span>':''}</span>
+      <span style="color:#a78bfa;font-weight:600">${f.qta}</span>
+    </div>`).join('');
+  document.getElementById('medReminderTentativo').textContent=
+    tentativo<6?`Se non rispondo risuono tra 10 minuti (max ${6-tentativo} volte ancora)`
+               :'Ultimo tentativo — non suonerò più per questo orario';
+
+  document.getElementById('medReminderOverlay').style.display='block';
+  document.getElementById('medReminderModal').style.display='block';
+
+  // Suono beep
+  _suonaBeep();
+}
+
+function confermaPreseMedicine(){
+  if(_currentReminder?.snoozeTimer) clearTimeout(_currentReminder.snoozeTimer);
+  document.getElementById('medReminderOverlay').style.display='none';
+  document.getElementById('medReminderModal').style.display='none';
+  toast(`✅ Medicine delle ${_currentReminder?.oraKey} segnate come prese`,'ok');
+  _currentReminder=null;
+}
+
+function posticipaMedicine(){
+  if(!_currentReminder)return;
+  const {oraKey, farmList, tentativo}=_currentReminder;
+  document.getElementById('medReminderOverlay').style.display='none';
+  document.getElementById('medReminderModal').style.display='none';
+  toast(`⏰ Risuonerò alle ${oraKey} tra 10 minuti`,'ok');
+  if(tentativo<6){
+    const t=setTimeout(()=>mostraReminderModal(oraKey,farmList,tentativo+1), 10*60*1000);
+    _currentReminder={oraKey,farmList,tentativo:tentativo+1,snoozeTimer:t};
+  }
+  _currentReminder=null;
+}
+
+function _suonaBeep(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [0,0.35,0.7].forEach(delay=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.frequency.value=880;osc.type='sine';
+      gain.gain.setValueAtTime(0.4,ctx.currentTime+delay);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.28);
+      osc.start(ctx.currentTime+delay);osc.stop(ctx.currentTime+delay+0.3);
+    });
+  }catch(e){}
+}
+
+// Override buildAlarms per usare modal invece di solo notifica SW
 function buildAlarms(){
   const byOra={};
   farmaci.filter(f=>(f.stato||'attivo')==='attivo').forEach(f=>{
@@ -3536,11 +3623,136 @@ function buildAlarms(){
   });
 }
 
+// Programma timer in-app (fallback affidabile per web)
+let _alarmTimers=[];
+function programmaTimerLocali(){
+  _alarmTimers.forEach(clearTimeout);_alarmTimers=[];
+  if(!_notifActive)return;
+  const alarms=buildAlarms();
+  alarms.forEach(a=>{
+    const t=setTimeout(()=>{
+      // Mostra modal in-app
+      mostraReminderModal(a.oraKey,a.farmaci,1);
+      // Invia anche notifica di sistema (se supportata)
+      if(Notification.permission==='granted'){
+        try{
+          const n=new Notification('💊 Medicine - '+a.oraKey,{
+            body:a.farmaci.map(f=>`${f.nome} ${f.qta}`).join(', '),
+            icon:'icon-192.png',tag:'med-'+a.oraKey,silent:false
+          });
+          n.onclick=()=>{window.focus();n.close();};
+        }catch(e){}
+      }
+    },a.msToFire);
+    _alarmTimers.push(t);
+    // Riprogramma per il giorno dopo dopo 60s dalla scadenza
+    const reset=setTimeout(()=>{if(_notifActive)programmaTimerLocali();},a.msToFire+60000);
+    _alarmTimers.push(reset);
+  });
+}
+
+// ── PDF MISURAZIONI ───────────────────────────────────────────────────────────
+function stampaMisurazioni(){
+  if(!misurazioni.length){toast('Nessuna misurazione da stampare','err');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const oggi=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+  const W=210,PL=14,PR=14,CW=W-PL-PR;
+  let y=14;
+
+  // Intestazione
+  doc.setFillColor(17,17,17);doc.rect(PL,y,CW,1,'F');y+=4;
+  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(17,17,17);
+  doc.text('Misurazioni Pressione Arteriosa',PL,y);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,100,100);
+  doc.text('BAZZOCCHI ALESSANDRO',W-PR,y,{align:'right'});
+  doc.text(oggi,W-PR,y+5,{align:'right'});
+  y+=14;doc.setDrawColor(220,220,220);doc.line(PL,y,W-PR,y);y+=6;
+
+  // Stats rapidi
+  const sisList=misurazioni.map(m=>m.sis);
+  const diaList=misurazioni.map(m=>m.dia);
+  const avg=arr=>Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(60,60,60);
+  doc.text(`Misurazioni totali: ${misurazioni.length}   |   Media: ${avg(sisList)}/${avg(diaList)} mmHg   |   `+
+    `Massima: ${Math.max(...sisList)}/${Math.max(...diaList)}   |   Minima: ${Math.min(...sisList)}/${Math.min(...diaList)}`,PL,y);
+  y+=8;doc.setDrawColor(230,230,230);doc.line(PL,y,W-PR,y);y+=5;
+
+  // Header tabella
+  doc.setFillColor(247,247,247);doc.rect(PL,y-4,CW,7,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(100,100,100);
+  doc.text('Data e Ora',PL,y);
+  doc.text('Sistolica',PL+55,y,{align:'right'});
+  doc.text('Diastolica',PL+82,y,{align:'right'});
+  doc.text('Freq.',PL+100,y,{align:'right'});
+  doc.text('Stato',PL+115,y);
+  doc.text('Note',PL+135,y);
+  y+=5;doc.setDrawColor(180,180,180);doc.line(PL,y,W-PR,y);y+=3;
+
+  // Righe (ordine cronologico inverso — più recente prima)
+  const sorted=[...misurazioni].reverse();
+  sorted.forEach((m,idx)=>{
+    if(y>275){doc.addPage();y=20;}
+    if(idx%2===0){doc.setFillColor(252,252,252);doc.rect(PL,y-3.5,CW,6.5,'F');}
+
+    const ssSt=misStatus(m.sis,'sis');
+    const ddSt=misStatus(m.dia,'dia');
+    const isAlt=ssSt!=='ok'||ddSt!=='ok';
+
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(80,80,80);
+    doc.text(fmtDT(m.dt),PL,y);
+
+    // Sistolica
+    const sisCol=ssSt==='high'?[185,28,28]:ssSt==='warn'?[180,100,0]:[22,163,74];
+    doc.setTextColor(...sisCol);doc.setFont('helvetica',ssSt!=='ok'?'bold':'normal');
+    doc.text(String(m.sis),PL+55,y,{align:'right'});
+
+    // Diastolica
+    const diaCol=ddSt==='high'?[185,28,28]:ddSt==='warn'?[180,100,0]:[22,163,74];
+    doc.setTextColor(...diaCol);doc.setFont('helvetica',ddSt!=='ok'?'bold':'normal');
+    doc.text(String(m.dia),PL+82,y,{align:'right'});
+
+    // FC
+    doc.setTextColor(100,100,100);doc.setFont('helvetica','normal');
+    doc.text(m.hr?String(m.hr):'—',PL+100,y,{align:'right'});
+
+    // Stato
+    doc.setTextColor(isAlt?185:22, isAlt?28:163, isAlt?28:74);
+    doc.text(isAlt?'⚠ Alterata':'✓ Ok',PL+115,y);
+
+    // Note
+    doc.setTextColor(130,130,130);
+    if(m.note)doc.text(m.note.slice(0,25),PL+135,y);
+
+    doc.setDrawColor(235,235,235);doc.line(PL,y+2.5,W-PR,y+2.5);
+    y+=6.5;
+  });
+
+  // Limiti di riferimento
+  y+=4;doc.setDrawColor(180,180,180);doc.line(PL,y,W-PR,y);y+=5;
+  doc.setFont('helvetica','italic');doc.setFontSize(7.5);doc.setTextColor(150,150,150);
+  doc.text('Valori di riferimento: Ottimale <120/80 · Normale <130/85 · Alta ≥140/90 mmHg',PL,y);
+
+  // Pagine
+  const pages=doc.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+    doc.text(`MedChart · Pag. ${i}/${pages} · ${oggi}`,W-PR,287,{align:'right'});
+  }
+
+  doc.save(`pressione_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('PDF misurazioni generato ✓','ok');
+}
+
 function getSW(){return _sw&&(_sw.active||_sw.installing||_sw.waiting);}
 
 async function programmaAlarmi(){
-  const sw=getSW();if(!sw)return;
-  sw.postMessage({type:'SCHEDULE_ALARMS',payload:{alarms:buildAlarms()}});
+  // Timer locali (affidabili, mostrano modal in-app)
+  programmaTimerLocali();
+  // Service Worker (per notifiche anche con app in background)
+  const sw=getSW();
+  if(sw)sw.postMessage({type:'SCHEDULE_ALARMS',payload:{alarms:buildAlarms()}});
 }
 
 function cancellaAlarmi(){
@@ -4189,18 +4401,6 @@ showPage('home');
 updateHomeBadges();
 render();
 initServiceWorker();
-
-// Restore notifications if previously enabled
-updateNotifBtn();
-if(_notifEnabled){
-  if(Notification.permission === 'granted'){
-    programmaNotifiche();
-  } else {
-    _notifEnabled = false;
-    localStorage.setItem('mc_notif','0');
-    updateNotifBtn();
-  }
-}
 
 // Update "prossima medicina" every minute when on terapia page
 prossimaMedicina();
