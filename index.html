@@ -934,6 +934,7 @@ hr{border:none;border-top:1px solid var(--border);margin:32px 0}
 <script src="https://apis.google.com/js/api.js" async defer></script>
 <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='';
 
@@ -3654,95 +3655,99 @@ function programmaTimerLocali(){
 // ── PDF MISURAZIONI ───────────────────────────────────────────────────────────
 function stampaMisurazioni(){
   if(!misurazioni.length){toast('Nessuna misurazione da stampare','err');return;}
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({unit:'mm',format:'a4'});
-  const oggi=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-  const W=210,PL=14,PR=14,CW=W-PL-PR;
-  let y=14;
+  toast('⏳ Generazione PDF…','ok');
+  const chartEl=document.getElementById('misChart');
+  const captureP=(chartEl&&chartEl.children.length)
+    ?html2canvas(chartEl,{backgroundColor:'#0a0c10',scale:2,logging:false,useCORS:true}).catch(()=>null)
+    :Promise.resolve(null);
 
-  // Intestazione
-  doc.setFillColor(17,17,17);doc.rect(PL,y,CW,1,'F');y+=4;
-  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(17,17,17);
-  doc.text('Misurazioni Pressione Arteriosa',PL,y);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,100,100);
-  doc.text('BAZZOCCHI ALESSANDRO',W-PR,y,{align:'right'});
-  doc.text(oggi,W-PR,y+5,{align:'right'});
-  y+=14;doc.setDrawColor(220,220,220);doc.line(PL,y,W-PR,y);y+=6;
+  captureP.then(canvas=>{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const oggi=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+    const W=210,PL=14,PR=14,CW=W-PL-PR;
+    let y=14;
 
-  // Stats rapidi
-  const sisList=misurazioni.map(m=>m.sis);
-  const diaList=misurazioni.map(m=>m.dia);
-  const avg=arr=>Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
-  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(60,60,60);
-  doc.text(`Misurazioni totali: ${misurazioni.length}   |   Media: ${avg(sisList)}/${avg(diaList)} mmHg   |   `+
-    `Massima: ${Math.max(...sisList)}/${Math.max(...diaList)}   |   Minima: ${Math.min(...sisList)}/${Math.min(...diaList)}`,PL,y);
-  y+=8;doc.setDrawColor(230,230,230);doc.line(PL,y,W-PR,y);y+=5;
+    // Intestazione
+    doc.setFillColor(17,17,17);doc.rect(PL,y,CW,1,'F');y+=4;
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(17,17,17);
+    doc.text('Misurazioni Pressione Arteriosa',PL,y);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,100,100);
+    doc.text('BAZZOCCHI ALESSANDRO',W-PR,y,{align:'right'});
+    doc.text(oggi,W-PR,y+5,{align:'right'});
+    y+=14;doc.setDrawColor(220,220,220);doc.line(PL,y,W-PR,y);y+=5;
 
-  // Header tabella
-  doc.setFillColor(247,247,247);doc.rect(PL,y-4,CW,7,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(100,100,100);
-  doc.text('Data e Ora',PL,y);
-  doc.text('Sistolica',PL+55,y,{align:'right'});
-  doc.text('Diastolica',PL+82,y,{align:'right'});
-  doc.text('Freq.',PL+100,y,{align:'right'});
-  doc.text('Stato',PL+115,y);
-  doc.text('Note',PL+135,y);
-  y+=5;doc.setDrawColor(180,180,180);doc.line(PL,y,W-PR,y);y+=3;
+    // Stats
+    const sisList=misurazioni.map(m=>m.sis);
+    const diaList=misurazioni.map(m=>m.dia);
+    const avg=arr=>Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(60,60,60);
+    doc.text(`Misurazioni: ${misurazioni.length}   ·   Media: ${avg(sisList)}/${avg(diaList)} mmHg   ·   Max: ${Math.max(...sisList)}/${Math.max(...diaList)}   ·   Min: ${Math.min(...sisList)}/${Math.min(...diaList)}`,PL,y);
+    y+=8;
 
-  // Righe (ordine cronologico inverso — più recente prima)
-  const sorted=[...misurazioni].reverse();
-  sorted.forEach((m,idx)=>{
-    if(y>275){doc.addPage();y=20;}
-    if(idx%2===0){doc.setFillColor(252,252,252);doc.rect(PL,y-3.5,CW,6.5,'F');}
+    // Grafico
+    if(canvas){
+      const imgData=canvas.toDataURL('image/png');
+      const imgH=Math.round(CW*canvas.height/canvas.width);
+      doc.setFillColor(17,19,24);doc.rect(PL,y,CW,imgH,'F');
+      doc.addImage(imgData,'PNG',PL,y,CW,imgH);
+      y+=imgH+3;
+      doc.setFontSize(7.5);doc.setFont('helvetica','normal');
+      doc.setTextColor(220,60,60);doc.text('— Sistolica (limite 140)',PL,y);
+      doc.setTextColor(92,159,255);doc.text('— Diastolica (limite 90)',PL+55,y);
+      y+=7;
+    }
 
-    const ssSt=misStatus(m.sis,'sis');
-    const ddSt=misStatus(m.dia,'dia');
-    const isAlt=ssSt!=='ok'||ddSt!=='ok';
+    doc.setDrawColor(220,220,220);doc.line(PL,y,W-PR,y);y+=5;
 
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(80,80,80);
-    doc.text(fmtDT(m.dt),PL,y);
+    // Header tabella
+    doc.setFillColor(247,247,247);doc.rect(PL,y-4,CW,7,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(100,100,100);
+    doc.text('Data e Ora',PL,y);
+    doc.text('Sist.',PL+60,y,{align:'right'});
+    doc.text('Diast.',PL+78,y,{align:'right'});
+    doc.text('FC',PL+92,y,{align:'right'});
+    doc.text('Stato',PL+100,y);
+    doc.text('Note',PL+125,y);
+    y+=5;doc.setDrawColor(180,180,180);doc.line(PL,y,W-PR,y);y+=3;
 
-    // Sistolica
-    const sisCol=ssSt==='high'?[185,28,28]:ssSt==='warn'?[180,100,0]:[22,163,74];
-    doc.setTextColor(...sisCol);doc.setFont('helvetica',ssSt!=='ok'?'bold':'normal');
-    doc.text(String(m.sis),PL+55,y,{align:'right'});
+    // Righe
+    const sorted=[...misurazioni].reverse();
+    sorted.forEach((m,idx)=>{
+      if(y>275){doc.addPage();y=20;}
+      if(idx%2===0){doc.setFillColor(252,252,252);doc.rect(PL,y-3.5,CW,6.5,'F');}
+      const ssSt=misStatus(m.sis,'sis'),ddSt=misStatus(m.dia,'dia');
+      const isAlt=ssSt!=='ok'||ddSt!=='ok';
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(80,80,80);
+      doc.text(fmtDT(m.dt),PL,y);
+      const sC=ssSt==='high'?[185,28,28]:ssSt==='warn'?[180,100,0]:[22,163,74];
+      doc.setTextColor(...sC);doc.setFont('helvetica',ssSt!=='ok'?'bold':'normal');
+      doc.text(String(m.sis),PL+60,y,{align:'right'});
+      const dC=ddSt==='high'?[185,28,28]:ddSt==='warn'?[180,100,0]:[22,163,74];
+      doc.setTextColor(...dC);doc.setFont('helvetica',ddSt!=='ok'?'bold':'normal');
+      doc.text(String(m.dia),PL+78,y,{align:'right'});
+      doc.setTextColor(100,100,100);doc.setFont('helvetica','normal');
+      doc.text(m.hr?String(m.hr):'—',PL+92,y,{align:'right'});
+      doc.setTextColor(isAlt?185:22,isAlt?28:163,isAlt?28:74);
+      doc.text(isAlt?'⚠ Alta':'✓ Ok',PL+100,y);
+      doc.setTextColor(130,130,130);
+      if(m.note)doc.text(m.note.slice(0,28),PL+125,y);
+      doc.setDrawColor(235,235,235);doc.line(PL,y+2.5,W-PR,y+2.5);
+      y+=6.5;
+    });
 
-    // Diastolica
-    const diaCol=ddSt==='high'?[185,28,28]:ddSt==='warn'?[180,100,0]:[22,163,74];
-    doc.setTextColor(...diaCol);doc.setFont('helvetica',ddSt!=='ok'?'bold':'normal');
-    doc.text(String(m.dia),PL+82,y,{align:'right'});
+    y+=4;doc.setDrawColor(180,180,180);doc.line(PL,y,W-PR,y);y+=5;
+    doc.setFont('helvetica','italic');doc.setFontSize(7.5);doc.setTextColor(150,150,150);
+    doc.text('Valori: Ottimale <120/80 · Normale <130/85 · Alta ≥140/90 mmHg',PL,y);
 
-    // FC
-    doc.setTextColor(100,100,100);doc.setFont('helvetica','normal');
-    doc.text(m.hr?String(m.hr):'—',PL+100,y,{align:'right'});
-
-    // Stato
-    doc.setTextColor(isAlt?185:22, isAlt?28:163, isAlt?28:74);
-    doc.text(isAlt?'⚠ Alterata':'✓ Ok',PL+115,y);
-
-    // Note
-    doc.setTextColor(130,130,130);
-    if(m.note)doc.text(m.note.slice(0,25),PL+135,y);
-
-    doc.setDrawColor(235,235,235);doc.line(PL,y+2.5,W-PR,y+2.5);
-    y+=6.5;
+    const pages=doc.getNumberOfPages();
+    for(let i=1;i<=pages;i++){
+      doc.setPage(i);doc.setFontSize(7.5);doc.setTextColor(180,180,180);
+      doc.text(`MedChart · Pag. ${i}/${pages} · ${oggi}`,W-PR,287,{align:'right'});
+    }
+    doc.save(`pressione_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast('✓ PDF pressione con grafico generato','ok');
   });
-
-  // Limiti di riferimento
-  y+=4;doc.setDrawColor(180,180,180);doc.line(PL,y,W-PR,y);y+=5;
-  doc.setFont('helvetica','italic');doc.setFontSize(7.5);doc.setTextColor(150,150,150);
-  doc.text('Valori di riferimento: Ottimale <120/80 · Normale <130/85 · Alta ≥140/90 mmHg',PL,y);
-
-  // Pagine
-  const pages=doc.getNumberOfPages();
-  for(let i=1;i<=pages;i++){
-    doc.setPage(i);doc.setFont('helvetica','normal');
-    doc.setFontSize(7.5);doc.setTextColor(180,180,180);
-    doc.text(`MedChart · Pag. ${i}/${pages} · ${oggi}`,W-PR,287,{align:'right'});
-  }
-
-  doc.save(`pressione_${new Date().toISOString().split('T')[0]}.pdf`);
-  toast('PDF misurazioni generato ✓','ok');
 }
 
 function getSW(){return _sw&&(_sw.active||_sw.installing||_sw.waiting);}
@@ -4396,13 +4401,42 @@ async function generaPdfManuale(dataVal,nome,params){
   return doc.output('blob');
 }
 
+// ── PROSSIMA MEDICINA ─────────────────────────────────────────────────────────
+function prossimaMedicina(){
+  const el=document.getElementById('prossimaInfo');
+  if(!el)return;
+  const attivi=farmaci.filter(f=>(f.stato||'attivo')==='attivo');
+  const byOra={};
+  attivi.forEach(f=>f.orari.forEach(o=>{
+    if(!byOra[o.ora])byOra[o.ora]=[];
+    byOra[o.ora].push(f.nome);
+  }));
+  const now=new Date();
+  const hhmm=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  const prossime=Object.entries(byOra).filter(([o])=>o>hhmm).sort(([a],[b])=>a.localeCompare(b));
+  if(!prossime.length){el.textContent=Object.keys(byOra).length?'✓ Nessuna medicina rimanente oggi':'';return;}
+  const[o,nomi]=prossime[0];
+  el.textContent=`⏭ Prossima: ${o} — ${nomi.join(', ')}`;
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 showPage('home');
 updateHomeBadges();
 render();
 initServiceWorker();
 
-// Update "prossima medicina" every minute when on terapia page
+// Restore notifications
+aggiornaNotifBtn();
+if(_notifActive){
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+    programmaAlarmi();
+  } else {
+    _notifActive=false;
+    localStorage.setItem('mc_notif','0');
+    aggiornaNotifBtn();
+  }
+}
+
 prossimaMedicina();
 setInterval(()=>{ if(currentPage==='terapia') prossimaMedicina(); }, 60000);
 
